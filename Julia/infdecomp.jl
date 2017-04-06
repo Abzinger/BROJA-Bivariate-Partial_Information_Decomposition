@@ -1,109 +1,151 @@
 # infdecomp.jl
 module InfDecomp
-export help, decomp, verify
-
-function help()::Void
-    help_text=
-"""
-The help text will go here, once it is finished.
-Blah, blah, blah.
-"""
-    println(help_text)
-    ;
-end
+export decomp, verify
 
 using MathProgBase
 
-typealias MyInt Int32
+type My_Eval <: MathProgBase.AbstractNLPEvaluator
+    n_x     :: Int32
+    n_y     :: Int32
+    n_z     :: Int32
+
+    varidx  :: Array{Int32,3} # 0 if variable not present; otherwise idx of var
+    xyz     :: Vector{Tuple{Int32,Int32,Int32}} # xyz-triple of varidx
+
+    eqidx   :: Dict{ Tuple{String,Int32,Int32},Int32} # first idx is "xy" or "xz"
+    mr_eq   :: Vector{ Tuple{String,Int32,Int32} }    # ("xy",x,y) / ("yz",y,z) of an eqn
+
+    marg_xy :: Array{Float64,2}
+    marg_xz :: Array{Float64,2}
+    marg_x  :: Array{Float64,1}
+
+    n     :: Int32         # number of variables
+    m     :: Int32         # number of marginal equations
 
 
-# ----------------
-# S e t   D a t a
-# ----------------
-type Set_Data{T1,T2,T3}
-    X :: Vector{T1}
-    Y :: Vector{T2}
-    Z :: Vector{T3}
-    var_idx :: Dict{Tuple{MyInt,MyInt},MyInt}
-    Set_Data() = new([],[],[],Dict{Tuple{T1,T2,T3},Int32}())
+    rhs   :: Vector{Float64} # m-vector
+    Gt    :: SparseMatrixCSC{Float64,Int32} # G^T n x m; transpose of constraint matrix
+    Gt_K  :: Vector{Int32} # findn()-info of G^T: rows
+    Gt_L  :: Vector{Int32} # findn()-info of G^T: columns
+
+    TmpFloat       :: DataType
+    bigfloat_nbits :: Int32
 end
 
-to_yz{I<:Integer              }(d::Set_Data, y::I, z::I)         :: MyInt    = MyInt( y*d.length(Z) + z )
-varidx{I₁<:Integer,I₂<:Integer}(d::Set_Data, x::I₁,yz::I₂)       :: MyInt    = get( d.var_idx, (x,yz), 0)
-
-function Set_Data{T1,T2,T3,FLOAT}(pdf::Dict{Tuple{T1,T2,T3},FLOAT})
-    local var_list::Vector{ Pair{Tuple{MyInt,MyInt},MyInt} }
-    local X_set::Set{T1}
-    local Y_set::Set{T2}
-    local Z_set::Set{T3}
-
-    for (xyz,val) ∈ pdf
-        if val > 0
-            x,y,z = xyz
-            push!(X_set,x)
-            push!(Y_set,y)
-            push!(Z_set,z)
-        end
+function create_My_Eval(q::Array{Float64,3})
+    if ndims(q) != 3
+        print("Need 3 dimensions in q\n");
+        return;
     end
+    const n_x::Int32 = size(q,1);
+    const n_y::Int32 = size(q,2);
+    const n_z::Int32 = size(q,3);
 
-    d = Set_Data{T1,T2,T3}
-    d.X = Vector{T1}( collect(X_set) )
-    d.Y = Vector{T1}( collect(Y_set) )
-    d.Z = Vector{T1}( collect(Z_set) )
-
-    CONTINUE HERE
-    m_XY::Array{FLOAT} = [  sum(view(pdf[x,y,:]))   for x ∈ d.X, y ∈ d.Y  ]
-    m_XZ::Array{FLOAT} = [  sum(view(pdf[x,:,z]))   for x ∈ d.X, z ∈ d.Z  ]
-
-
-    ...................................................................................................
-
-
-    local counter::Int = 0
-            counter += 1
-
-
-
-
-    sizehint!(d.var_idx, counter)
-
-    sort!(d.X)
-    sort!(d.Y)
-    sort!(d.Z)
-
-    # We want an X x (YxZ) in column major:
-    for i_y,y in enumerate(d.Y):
-        for i_z,z in enumerate(d.Z):
-            for i_x,x in enumerate(d.X):
-                if get(pdf,(x,y,z),-1) > 0
-                    push!(var_list, (MyInt(i_x),to_yz(i_y,i_z)) => MyInt(1+length(var_list)) )
-                end
+    # Create marginals
+    marg_xy::Array{Float64,2} = zeros(n_x,n_y)
+    marg_xz::Array{Float64,2} = zeros(n_x,n_z)
+    marg_x::Array{Float64,1}  = zeros(n_x)
+    for x in 1:n_x
+        for y in 1:n_y
+            for z in 1:n_z
+                marg_xy[x,y] += q[x,y,z]
+                marg_xz[x,z] += q[x,y,z]
+                marg_x[x]    += q[x,y,z]
             end
         end
     end
 
-    d.var_idx = Dict{Tuple{MyInt,MyInt},MyInt}( var_list )
+    # Find the variables
+    varidx::Array{Int32,3} = zeros(Bool,size(q));
+    xyz   :: Vector{Tuple{Int32,Int32,Int32}} = [ (0,0,0) for i in 1:n_x*n_y*n_z ]
+    n::Int32 = 0
+    for x in 1:n_x
+        for y in 1:n_y
+            for z in 1:n_z
+                if marg_xy[x,y] > 0  &&  marg_xz[x,z] > 0
+                    n += 1
+                    varidx[x,y,z] = n
+                    xyz[n]        = (x,y,z)
+                else
+                    varidx[x,y,z] = 0
+                end#if
+            end
+        end
+    end
 
-    return d
+    # Find the equations
+    eqidx = Dict{ Tuple{String,Int32,Int32},Int32}() # first idx is "xy" or "xz"
+    mr_eq::Vector{ Tuple{String,Int32,Int32} }    = [ ("",0,0)   for i in 1:n_x*(n_y+n_z) ]
+    m::Int32 = 0
+    for x in 1:n_x
+        for y in 1:n_y
+            if marg_xy[x,y] > 0
+                m += 1
+                eqidx["xy",x,y] = m
+                mr_eq[m]        = ("xy",x,y)
+            else
+                eqidx["xy",x,y] = 0
+            end#if
+        end
+        for z in 1:n_z
+            if marg_xz[x,z] > 0
+                m += 1
+                eqidx["xz",x,z] = m
+                mr_eq[m]        = ("xz",x,z)
+            else
+                eqidx["xz",x,z] = 0
+            end#if
+        end
+    end #for x
+
+    rhs::Vector{Float64} = zeros(m)
+    for k in 1:m
+        mr = mr_eq[k]
+        if mr[1] == "xy"
+            rhs[k] = marg_xy[ mr[2], mr[3] ]
+        elseif mr[1]=="xz"
+            rhs[k] = marg_xz[ mr[2], mr[3] ]
+        else
+            print("Fuck! Bug!")
+            return;
+        end
+    end #for all marg equations
+
+    denseGt :: Array{Float64,2} = zeros(n,m)
+    for l in 1:n
+        (x,y,z) = xyz[l]
+        for k in 1:m
+            mr = mr_eq[k]
+            if mr[1] == "xy"
+                xy = mr[2:3]
+                if xy[1]==x && xy[2]==y
+                    denseGt[l,k] = 1.
+                end
+            elseif mr[1]=="xz"
+                xz = mr[2:3]
+                if xz[1]==x && xz[2]==z
+                    denseGt[l,k] = 1.
+                end
+            else
+                print("Fuck! Bug!")
+                return;
+            end
+        end
+    end
+
+    Gt::SparseMatrixCSC{Float64,Int32} = sparse(denseGt)
+    local Gt_K::Array{Int32,1}
+    local Gt_L::Array{Int32,1}
+    (Gt_K,Gt_L) = findn(Gt)
+
+    TmpFloat       :: DataType  = BigFloat
+    bigfloat_nbits :: Int32     = 256
+
+
+    return My_Eval(n_x,n_y,n_z, varidx,xyz, eqidx,mr_eq, marg_xy,marg_xz,marg_x, n,m, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
     ;
-end #^ Set_Data() [constructor]
-
-type My_Eval{FLOAT} <: MathProgBase.AbstractNLPEvaluator
-    n     :: MyInt         # number of variables
-    m     :: MyInt         # number of marginal equations
-
-    d     :: Set_Data      # X,Y,Z and all that
-
-    rhs   :: Vector{FLOAT} # m-vector
-    Gt    :: SparseMatrixCSC{Float64,MyInt} # G^T n x m; transpose of constraint matrix
-    Gt_K  :: Vector{MyInt} # findn()-info of G^T: rows
-    Gt_L  :: Vector{MyInt} # findn()-info of G^T: columns
-
-    TmpFloat       :: DataType
-    bigfloat_nbits :: Int
-
-    My_Eval() = new(-1,-1,-1,-1,[],spzeros(0,0),[],[],BigFloat,256)
 end
+
 
 features_list  = [:Grad,:Jac,:JacVec,:Hess]::Vector{Symbol} # not doing :HessVec right now
 
@@ -153,7 +195,6 @@ features_available(::My_Eval) = features_list
 isobjlinear(::My_Eval)           = false
 isobjquadratic(::My_Eval)        = false
 isconstrlinear(::My_Eval, ::Any) = true
-
 
 
 # ------------------------------------------
@@ -241,7 +282,7 @@ end # eval_grad_f()
 
 # Constraint Jacobian
 # jac_structure() --- zero-nonzero pattern of constraint Jacobian
-jac_structure(e::My_Eval) ::Tuple(Vector{MyInt},Vector{MyInt})  = ( e.Gt_L , e.Gt_K ) # Note: Gt is transposed, so K and L are swapped
+jac_structure(e::My_Eval) ::Tuple(Vector{Int32},Vector{Int32})  = ( e.Gt_L , e.Gt_K ) # Note: Gt is transposed, so K and L are swapped
 
 
 # eval_jac_g() --- constraint Jacobian   -> J
@@ -276,7 +317,7 @@ end
 # Since G(.) is linear, it's Hessian is 0 anyway, so it won't bother us.
 
 # hesslag_structure() --- zero-nonzero pattern of Hessian [wrt x] of the Lagrangian
-function hesslag_structure(e::My_Eval)  :: Tuple(Vector{MyInt},Vector{MyInt})
+function hesslag_structure(e::My_Eval)  :: Tuple(Vector{Int32},Vector{Int32})
     P   = reshape(x, sz_X,sz_YZ)
     counter = 1
     for yz = 1:sz_YZ
@@ -370,8 +411,8 @@ end # eval_hesslag()
 # U S I N G   I T
 # ----------------
 
-numo_vars(e::My_Eval)                   :: MyInt            = e.n
-numo_constraints(e::My_Eval)            :: MyInt            = e.m
+numo_vars(e::My_Eval)                   :: Int32            = e.n
+numo_constraints(e::My_Eval)            :: Int32            = e.m
 constraints_lowerbounds_vec(e::My_Eval) :: Vector{Float64}  = zeros{Float64}(e.m)
 constraints_upperbounds_vec(e::My_Eval) :: Vector{Float64}  = zeros{Float64}(e.m)
 vars_lowerbounds_vec(e::My_Eval)        :: Vector{Float64}  = zeros{Float64}(e.n)
@@ -437,7 +478,7 @@ end #^ create_stuff
 
 using Base.Test
 
-function mytest(n::MyInt, solver=MathProgBase.defaultNLPsolver)
+function mytest(n::Int32, solver=MathProgBase.defaultNLPsolver)
 
     const model = MathProgBase.NonlinearModel(solver)
     const myeval = create_My_Eval(n)
