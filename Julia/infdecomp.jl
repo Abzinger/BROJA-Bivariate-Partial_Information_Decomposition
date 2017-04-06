@@ -1,42 +1,38 @@
 # infdecomp.jl
 module InfDecomp
-export decomp, verify
+export decomp
 
 using MathProgBase
+# http://mathprogbasejl.readthedocs.io/en/latest/nlp.html
 
 type My_Eval <: MathProgBase.AbstractNLPEvaluator
     n_x     :: Int32
     n_y     :: Int32
     n_z     :: Int32
 
-    varidx  :: Array{Int32,3} # 0 if variable not present; otherwise idx of var
+    n     :: Int32         # number of variables
+    m     :: Int32         # number of marginal equations
+
+    varidx  :: Array{Int32,3}                   # 0 if variable not present; otherwise idx of var in {1,...,n}
     xyz     :: Vector{Tuple{Int32,Int32,Int32}} # xyz-triple of varidx
 
-    eqidx   :: Dict{ Tuple{String,Int32,Int32},Int32} # first idx is "xy" or "xz"
-    mr_eq   :: Vector{ Tuple{String,Int32,Int32} }    # ("xy",x,y) / ("yz",y,z) of an eqn
+    eqidx   :: Dict{ Tuple{String,Int32,Int32},  Int32} # first idx is "xy" or "xz". Index of eqn in {1,...,m}
+    mr_eq   :: Vector{ Tuple{String,Int32,Int32} }      # ("xy",x,y) / ("yz",y,z) of an eqn
 
     marg_xy :: Array{Float64,2}
     marg_xz :: Array{Float64,2}
     marg_x  :: Array{Float64,1}
 
-    n     :: Int32         # number of variables
-    m     :: Int32         # number of marginal equations
-
-
-    rhs   :: Vector{Float64} # m-vector
+    rhs   :: Vector{Float64}                # m-vector
     Gt    :: SparseMatrixCSC{Float64,Int32} # G^T n x m; transpose of constraint matrix
-    Gt_K  :: Vector{Int32} # findn()-info of G^T: rows
-    Gt_L  :: Vector{Int32} # findn()-info of G^T: columns
+    Gt_K  :: Vector{Int32}                  # findn()-info of G^T: rows
+    Gt_L  :: Vector{Int32}                  # findn()-info of G^T: columns
 
     TmpFloat       :: DataType
     bigfloat_nbits :: Int32
 end
 
 function create_My_Eval(q::Array{Float64,3})
-    if ndims(q) != 3
-        print("Need 3 dimensions in q\n");
-        return;
-    end
     const n_x::Int32 = size(q,1);
     const n_y::Int32 = size(q,2);
     const n_z::Int32 = size(q,3);
@@ -56,8 +52,8 @@ function create_My_Eval(q::Array{Float64,3})
     end
 
     # Find the variables
-    varidx::Array{Int32,3} = zeros(Bool,size(q));
-    xyz   :: Vector{Tuple{Int32,Int32,Int32}} = [ (0,0,0) for i in 1:n_x*n_y*n_z ]
+    varidx::Array{Int32,3}                   = zeros(Bool,size(q));
+    xyz   ::Vector{Tuple{Int32,Int32,Int32}} = [ (0,0,0) for i in 1:n_x*n_y*n_z ]
     n::Int32 = 0
     for x in 1:n_x
         for y in 1:n_y
@@ -75,7 +71,7 @@ function create_My_Eval(q::Array{Float64,3})
 
     # Find the equations
     eqidx = Dict{ Tuple{String,Int32,Int32},Int32}() # first idx is "xy" or "xz"
-    mr_eq::Vector{ Tuple{String,Int32,Int32} }    = [ ("",0,0)   for i in 1:n_x*(n_y+n_z) ]
+    mr_eq ::Vector{ Tuple{String,Int32,Int32} }   = [ ("",0,0)   for i in 1:n_x*(n_y+n_z) ]
     m::Int32 = 0
     for x in 1:n_x
         for y in 1:n_y
@@ -142,7 +138,7 @@ function create_My_Eval(q::Array{Float64,3})
     bigfloat_nbits :: Int32     = 256
 
 
-    return My_Eval(n_x,n_y,n_z, varidx,xyz, eqidx,mr_eq, marg_xy,marg_xz,marg_x, n,m, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
+    return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, marg_xy,marg_xz,marg_x, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
     ;
 end
 
@@ -200,20 +196,25 @@ isconstrlinear(::My_Eval, ::Any) = true
 # ------------------------------------------
 # E v a l u a t i o n :   0 t h   o r d e r
 # ------------------------------------------
-
-function condEntropy{TFloat}(e::My_Eval, x::Vector{Float64}, dummy::TFloat)   :: TFloat
-    P = reshape(x,sz_X,sz_YZ)
-    s::TFloat  = TFloat(0.)
-    for yz = 1:sz_YZ
-        # make marginal P(*yz)
-        P_yz::TFloat = TFloat(0.)
-        for x = 1:sz_X
-            P_yz += P[x,yz]
-        end
-        # make and add log-expressions  P(xyz)* log( P(xyz) / P(*yz) )
-        for x = 1:sz_X
-            P_xyz::TFloat = TFloat( P[x,yz] )
-            P_xyz ≤ 0 || (   s += P_xyz * log( P_xyz / P_yz )   )
+function condEntropy{TFloat}(e::My_Eval, p::Vector{Float64}, dummy::TFloat)   :: TFloat
+    # m_yz = marg_yz(e,p,dummy)
+    s::TFloat = TFloat(0.)
+    for y = 1:e.n_y
+        for z = 1:e.n_z
+            P_yz = TFloat(0.)
+            for x = 1:e.n_x
+                i = e.varidx(x,y,z)
+                if i>0
+                    P_yz += e.p[i]
+                end
+            end
+            for x = 1:e.n_x
+                i = e.varidx(x,y,z)
+                if i>0
+                    p_xyz = e.p[i]
+                    s  +=  (  p_xyz ≤ 0 ?   TFloat(0.)   :   - p_xyz*log( p_xyz / P_yz )   )
+                end
+            end
         end
     end
     return s
@@ -221,17 +222,17 @@ function condEntropy{TFloat}(e::My_Eval, x::Vector{Float64}, dummy::TFloat)   ::
 end
 
 function eval_f(e::My_Eval, x::Vector{Float64}) :: Float64
-    local retval::Float64
-    if (TmpFloat==BigFloat)
+    local condent::Float64
+    if TmpFloat==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
-        retval = condEntropy(e,x,BigFloat())
+        condent = condEntropy(e,x,BigFloat())
         setprecision(BigFloat,prc)
     else
-        retval = condEntropy(e,x,Float64())
+        condent = condEntropy(e,x,Float64())
     end
 
-    return retval
+    return -condent
     ;
 end
 
@@ -247,27 +248,33 @@ end # eval_g()
 # E v a l u a t i o n :   1 s t   o r d e r
 # ------------------------------------------
 
-function ∇f{TFloat}(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}, dummy::TFloat) :: Void
-    grad = reshape(g, sz_X,sz_YZ)
-    P    = reshape(x, sz_X,sz_YZ)
-    for yz = 1:sz_YZ
-        # make marginal P(*yz)
-        P_yz::TFloat = TFloat(0.)
-        for x = 1:sz_X
-            P_yz += P[x,yz]
-        end
-        # make log-expressions  log( P(xyz) / P(*yz) )
-        for x = 1:sz_X
-            P_xyz::TFloat = TFloat( P[x,yz] )
-            grad[x,yz] = Float64(  P_xyz ≤ 0 ?  TFloat(0.)  : log( P_xyz / P_yz )  )
-        end
-    end
+function ∇f{TFloat}(e::My_Eval, grad::Vector{Float64}, p::Vector{Float64}, dummy::TFloat) :: Void
+    for y = 1:e.n_y
+        for z = 1:e.n_z
+            # make marginal P(*yz)
+            P_yz::TFloat = TFloat(0.)
+            for x = 1:e.n_x
+                i = e.varidx(x,y,z)
+                if i>0
+                    P_yz += e.p[i]
+                end
+            end
+            # make log-expressions  log( P(xyz) / P(*yz) )
+            for x = 1:e.n_x
+                i = e.varidx(x,y,z)
+                if i>0
+                    P_xyz::TFloat = TFloat( e.p[i] )
+                    grad[i] = Float64(  P_xyz ≤ 0 ?  TFloat(0.)  : log( P_xyz / P_yz )  )
+                end
+            end
+        end# for y
+    end# for x
     ;
 end # ∇f()
 
 # eval_grad_f --- eval gradient of objective function
 function eval_grad_f(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}) :: Void
-    if (TmpFloat==BigFloat)
+    if TmpFloat==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         ∇f(e,g,x,BigFloat())
@@ -282,8 +289,8 @@ end # eval_grad_f()
 
 # Constraint Jacobian
 # jac_structure() --- zero-nonzero pattern of constraint Jacobian
-jac_structure(e::My_Eval) ::Tuple(Vector{Int32},Vector{Int32})  = ( e.Gt_L , e.Gt_K ) # Note: Gt is transposed, so K and L are swapped
-
+jac_structure(e::My_Eval) :: Tuple(Vector{Int32},Vector{Int32})   =  ( e.Gt_L , e.Gt_K )
+# Note: Gt is transposed, so K and L are swapped [K: rows of G^T; L: columns of G^T]
 
 # eval_jac_g() --- constraint Jacobian   -> J
 function eval_jac_g(e::My_Eval, J::Vector{Float64}, x::Vector{Float64}) :: Void
@@ -318,26 +325,33 @@ end
 
 # hesslag_structure() --- zero-nonzero pattern of Hessian [wrt x] of the Lagrangian
 function hesslag_structure(e::My_Eval)  :: Tuple(Vector{Int32},Vector{Int32})
-    P   = reshape(x, sz_X,sz_YZ)
-    counter = 1
-    for yz = 1:sz_YZ
-        # Start with the diagonal
-        for x = 1:sz_X
-            K[counter] = varidx(e,x,yz)
-            L[counter] = varidx(e,x,yz)
-            counter += 1
-        end
-        # Now off-diagonal.
-        # H is  treated as a symmetric matrix, though (*): if both (k,l) and (l,k) are present, their values will be added!
-        for x = 1:sz_X
-            for u = 1:sz_X
-                if x ≠ u
-                    K[counter] = varidx(e,x,yz)
-                    L[counter] = varidx(e,u,yz)
+    counter = 0
+    for y = 1:e.n_y
+        for z = 1:e.n_z
+            # Start with the diagonal
+            for x = 1:e.n_x
+                i = e.varidx[x,y,z]
+                if i>0
                     counter += 1
+                    K[counter] = i
+                    L[counter] = i
                 end
             end
-        end
+            # Now off-diagonal.
+            # H is  treated as a symmetric matrix, but:
+            # if both (k,l) & (l,k) are present, their values will be added!
+            for x = 1:e.n_x
+                for u = 1:(x-1)
+                    i_x = e.varidx[x,y,z]
+                    i_u = e.varidx[u,y,z]
+                    if i_x>0 && i_u>0
+                        counter += 1
+                        K[counter] = i_x
+                        L[counter] = i_u
+                    end
+                end
+            end#for z
+        end# for y
 
     end #^ for yz
     return nothing
@@ -346,40 +360,46 @@ end # hesslag_structure()
 
 
 function Hess{TFloat}(e::My_Eval, H::Vector{Float64}, x::Vector{Float64}, σ::Float64, dummy::TFloat) :: Void
-    P    = reshape(x, sz_X,sz_YZ)
-    counter = 1
-    for yz = 1:sz_YZ
-        # make marginal P(*yz)
-        P_yz::TFloat = TFloat(0.)
-        for x = 1:sz_X
-            P_yz += P[x,yz]
-        end
-        # now: for all pairs x,u we have:
-        # if x ≠  u:   -1/P_yz;
-        # if x == u:   ( P_yz - P(xyz) )/(  P_yz * P(xyz) )
-
-        # Start with the diagonal
-        for x = 1:sz_x
-            P_xyz::TFloat = TFloat( P[x,yz] )
-            if P_xyz > 0
-                H[counter] = Float64(  σ*( P_yz - P_xyz )/(  P_yz * P_xyz )  )
-            else
-                H[counter] = 0. # always the same question: does this make sense?!?
-            end
-            counter += 1
-        end
-        # Now off-diagonal.
-        # H must be stored as a symmetric matrix, though, so at most one of (k,l) , (l,k) is present.
-        for x = 1:sz_X
-            for u = 1:sz_X
-                if x ≠ u
-                    H[counter] =  ½ * Float64(  -σ/P_yz  ) # the ½ is because the matrix is treated as symmetric, see (*) above.
-                    counter += 1
+    counter = 0
+    for y = 1:e.n_y
+        for z = 1:e.n_z
+            # make marginal P(*yz)
+            P_yz  ::TFloat = TFloat(0.)
+            for x = 1:n_X
+                i = e.varidx[x,y,z]
+                if i>0
+                    P_yz += e.p[i]
                 end
             end
-        end
 
-    end #^ for yz
+            # now: for all pairs x,u we have:
+            # if x ≠  u:   -1/P_yz;
+            # if x == u:   ( P_yz - P(xyz) )/(  P_yz * P(xyz) )
+
+            # Start with the diagonal
+            for x = 1:e.n_x
+                i = e.varidx[x,y,z]
+                if i>0
+                    counter += 1
+                    P_xyz = e.p[i]
+                    H[counter] = Float64(  TFloat(σ)*( P_yz - P_xyz )/(  P_yz * P_xyz )  )
+                end
+            end
+            # Now off-diagonal.
+            # H is  treated as a symmetric matrix, but:
+            # if both (k,l) & (l,k) are present, their values will be added!
+            for x = 1:e.n_x
+                for u = 1:(x-1)
+                    i_x = e.varidx[x,y,z]
+                    i_u = e.varidx[u,y,z]
+                    if i_x>0 && i_u>0
+                        counter += 1
+                        H[counter] = -TFloat(σ)/P_yz
+                    end
+                end
+            end
+        end#for z
+    end# for y
     return nothing
     ;
 end # eval_hesslag()
@@ -388,13 +408,13 @@ end # eval_hesslag()
 
 # eval_hesslag() --- Hessian [wrt x] of the Lagrangian
 function eval_hesslag(e::My_Eval, H::Vector{Float64}, x::Vector{Float64}, σ::Float64, μ::Vector{Float64}) :: Void
-    if (TmpFloat==BigFloat)
+    if TmpFloat==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         Hess(e,H,x,σ,BigFloat())
         setprecision(BigFloat,prc)
     else
-        Hess(e,H,x,σ,BigFloat())
+        Hess(e,H,x,σ,Float64())
     end
     return nothing
     ;
@@ -419,93 +439,101 @@ vars_lowerbounds_vec(e::My_Eval)        :: Vector{Float64}  = zeros{Float64}(e.n
 vars_upperbounds_vec(e::My_Eval)        :: Vector{Float64}  = [Inf  for j=1:e.n]
 
 
-function create_stuff{T1,T2,T3,FLOAT<:AbstractFloat}(pdf::Dict{Tuple{T1,T2,T3},FLOAT}, tmpFloat::DataType=Float64) :: Tuple{Set_Data{T1,T2,T3},My_Eval{FLOAT}}
-    e = My_Eval{FLOAT}()
-    d = Set_Data{T1,T2,T3}()
+type Set_Data{T1,T2,T3}
+    Xidx :: Dict{T1,Int32}
+    Yidx :: Dict{T2,Int32}
+    Zidx :: Dict{T3,Int32}
+    X    :: Vector{T1}
+    Y    :: Vector{T1}
+    Z    :: Vector{T1}
+end
 
-    for xyz ∈ keys(pdf)
-        ( pdf[xyz] > 0 )||(  delete!(pdf,xyz)  )
+function create_Set_Data{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}) :: Set_Data{T1,T2,T3}
+    Xidx = Dict{T1,Int32}()
+    Yidx = Dict{T2,Int32}()
+    Zidx = Dict{T3,Int32}()
+
+    for (xyz,val) in pdf
+        x,y,z = xyz
+        if x ∉ keys(Xidx)
+            Xidx[x] = length(Xidx)+1
+        end
+        if y ∉ keys(Yidx)
+            Yidx[y] = length(Yidx)+1
+        end
+        if z ∉ keys(Zidx)
+            Zidx[z] = length(Zidx)+1
+        end
     end
 
+    X ::Vector{T1} = [ Xidx[1]  for i = 1:length(Xidx) ]
+    Y ::Vector{T1} = [ Yidx[1]  for i = 1:length(Yidx) ]
+    Z ::Vector{T1} = [ Zidx[1]  for i = 1:length(Zidx) ]
 
-    @assert ( length(d.X) ≥ 2 ) "|Range(X)| ≥ 2 needed"
-    @assert ( length(d.X) ≥ 2 ) "|Range(Y)| ≥ 2 needed"
-    @assert ( length(d.X) ≥ 2 ) "|Range(Z)| ≥ 2 needed"
+    for (x,i) in Xidx
+        X[i] = x
+    end
+    for (y,i) in Yidx
+        Y[i] = y
+    end
+    for (z,i) in Zidx
+        Z[i] = z
+    end
 
-    e.n     = length(pdf)
-    e.m     = length(d.X)*length(d.Y) + length(d.X)*length(d.Z)
-    e.sz_X  = length(d.X)
-    e.sz_YZ = length(d.Y)*length(d.Z)
+    @assert ( length(X) ≥ 2 ) "|Range(X)| ≥ 2 needed"
+    @assert ( length(Y) ≥ 2 ) "|Range(Y)| ≥ 2 needed"
+    @assert ( length(Z) ≥ 2 ) "|Range(Z)| ≥ 2 needed"
 
-    e.rhs = zeros(FLOAT,e.m)
+    return Set_Data{T1,T2,T3}(Xidx,Yidx,Zidx,X,Y,Z)
+    ;
+end
 
-    # Make tmpG and rhs
-    tmpG = zeros(Float64,e.m,e.n)
-    begin
-        local row::Int = 1
-        begin # xy-marginals
-            for (i_x,x) in enumerate(d.X)
-                for (i_y,y) in enumerate(d.Y)
-                    for (i_z,z) in enumerate(d.Z)
-                        tmpG[row, varidx(e,i_x,length(d.Z)*(i_y-1)+i_z)] = true
-                        e.rhs[row] += get(pdf,(x,y,z),0.)
-                    end
-                    row += 1
-                end
-            end
-        end #^ xy-marginals
-        begin # xz-marginals
-            for (i_x,x) in enumerate(d.X)
-                for (i_z,z) in enumerate(d.Z)
-                    for (i_y,y) in enumerate(d.Y)
-                        tmpG[row, varidx(e,i_x,length(d.Z)*(i_y-1)+i_z)] = true
-                        e.rhs[row] += get(pdf,(x,y,z),0.)
-                    end
-                    row += 1
-                end
-            end
-        end #^ xz-marginals
-    end #^ begin
 
-    e.Gt = sparse(tmpG')
-    e.Gt_K,e.Gt_L = findn(e.Gt)
+function create_stuff{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType=BigFloat) :: Tuple{ Set_Data{T1,T2,T3}, My_Eval }
+    sd = create_Set_Data(pdf)
 
-    tmpG = nothing
+    Q = zeros(Float64,length(X),length(Y),length(Z))
+    for (xyz,val) in pdf
+        Q[ sd.X[xyz[1]], sd.Y[xyz[2]], sd.Z[xyz[3]] ] = val
+    end
 
-    return (d,e)
+    e = create_My_Eval(Q)
+
+    return (sd,e)
     ;
 end #^ create_stuff
 
 using Base.Test
 
-function mytest(n::Int32, solver=MathProgBase.defaultNLPsolver)
 
+function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType=BigFloat, solver=MathProgBase.defaultNLPsolver)
     const model = MathProgBase.NonlinearModel(solver)
-    const myeval = create_My_Eval(n)
+    const sd,myeval = create_stuff(pdf)
     const lb = myeval.constraints_lowerbounds_vec
     const ub = myeval.constraints_upperbounds_vec
     const l = myeval.vars_lowerbounds_vec
     const u = myeval.vars_upperbounds_vec
 
-    MathProgBase.loadproblem!(model, myeval.numo_vars, myeval.numo_constraints, l, u, lb, ub, :Max, myeval)
+    MathProgBase.loadproblem!(model, myeval.n, myeval.m, l, u, lb, ub, :Max, myeval)
 
     MathProgBase.optimize!(model)
     stat = MathProgBase.status(model)
 
-    @test stat == :Optimal
-    @show MathProgBase.getobjval(model)
-    objvaldist = abs( log(n) - MathProgBase.getobjval(model) )*1.e-9
-    println("Distance from true optimum (in 1.e-9): $objvaldist")
 
-    x = MathProgBase.getsolution(model)
-    dist::Float64 = 0.
-    for j=1:n
-        dist += abs2(x[j]-1./n)
-    end
-    dist = sqrt(dist)*1.e-9
-    println("Norm Distance from true optimal value (in 1.e-9): $dist")
+    # @test stat == :Optimal
+    # @show MathProgBase.getobjval(model)
+    # objvaldist = abs( log(n) - MathProgBase.getobjval(model) )*1.e-9
+    # println("Distance from true optimum (in 1.e-9): $objvaldist")
 
-    # @test_approx_eq_eps MathProgBase.getobjval(model) log(n)  1.e-300
+    # x = MathProgBase.getsolution(model)
+    # dist::Float64 = 0.
+    # for j=1:n
+    #     dist += abs2(x[j]-1./n)
+    # end
+    # dist = sqrt(dist)*1.e-9
+    # println("Norm Distance from true optimal value (in 1.e-9): $dist")
+
+    # # @test_approx_eq_eps MathProgBase.getobjval(model) log(n)  1.e-300
 
 #    # Test that a second call to optimize! works
 #    MathProgBase.setwarmstart!(m,[1,5,5,1])
