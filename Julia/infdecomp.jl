@@ -528,7 +528,7 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType=
     # x = MathProgBase.getsolution(model)
     # dist::Float64 = 0.
     # for j=1:n
-    #     dist += abs2(x[j]-1./n)
+    #      dist += abs2(x[j]-1./n)
     # end
     # dist = sqrt(dist)*1.e-9
     # println("Norm Distance from true optimal value (in 1.e-9): $dist")
