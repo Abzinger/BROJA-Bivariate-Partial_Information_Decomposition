@@ -6,36 +6,36 @@ using MathProgBase
 # http://mathprogbasejl.readthedocs.io/en/latest/nlp.html
 
 type My_Eval <: MathProgBase.AbstractNLPEvaluator
-    n_x     :: Int32
-    n_y     :: Int32
-    n_z     :: Int32
+    n_x     :: Int64
+    n_y     :: Int64
+    n_z     :: Int64
 
-    n     :: Int32         # number of variables
-    m     :: Int32         # number of marginal equations
+    n     :: Int64         # number of variables
+    m     :: Int64         # number of marginal equations
 
-    varidx  :: Array{Int32,3}                   # 0 if variable not present; otherwise idx of var in {1,...,n}
-    xyz     :: Vector{Tuple{Int32,Int32,Int32}} # xyz-triple of varidx
+    varidx  :: Array{Int64,3}                   # 0 if variable not present; otherwise idx of var in {1,...,n}
+    xyz     :: Vector{Tuple{Int64,Int64,Int64}} # xyz-triple of varidx
 
-    eqidx   :: Dict{ Tuple{String,Int32,Int32},  Int32} # first idx is "xy" or "xz". Index of eqn in {1,...,m}
-    mr_eq   :: Vector{ Tuple{String,Int32,Int32} }      # ("xy",x,y) / ("yz",y,z) of an eqn
+    eqidx   :: Dict{ Tuple{String,Int64,Int64},  Int64} # first idx is "xy" or "xz". Index of eqn in {1,...,m}
+    mr_eq   :: Vector{ Tuple{String,Int64,Int64} }      # ("xy",x,y) / ("yz",y,z) of an eqn
 
     marg_xy :: Array{Float64,2}
     marg_xz :: Array{Float64,2}
     marg_x  :: Array{Float64,1}
 
     rhs   :: Vector{Float64}                # m-vector
-    Gt    :: SparseMatrixCSC{Float64,Int32} # G^T n x m; transpose of constraint matrix
-    Gt_K  :: Vector{Int32}                  # findn()-info of G^T: rows
-    Gt_L  :: Vector{Int32}                  # findn()-info of G^T: columns
+    Gt    :: SparseMatrixCSC{Float64,Int64} # G^T n x m; transpose of constraint matrix
+    Gt_K  :: Vector{Int64}                  # findn()-info of G^T: rows
+    Gt_L  :: Vector{Int64}                  # findn()-info of G^T: columns
 
     TmpFloat       :: DataType
-    bigfloat_nbits :: Int32
+    bigfloat_nbits :: Int64
 end
 
 function create_My_Eval(q::Array{Float64,3})
-    const n_x::Int32 = size(q,1);
-    const n_y::Int32 = size(q,2);
-    const n_z::Int32 = size(q,3);
+    const n_x::Int64 = size(q,1);
+    const n_y::Int64 = size(q,2);
+    const n_z::Int64 = size(q,3);
 
     # Create marginals
     marg_xy::Array{Float64,2} = zeros(n_x,n_y)
@@ -52,9 +52,9 @@ function create_My_Eval(q::Array{Float64,3})
     end
 
     # Find the variables
-    varidx::Array{Int32,3}                   = zeros(Bool,size(q));
-    xyz   ::Vector{Tuple{Int32,Int32,Int32}} = [ (0,0,0) for i in 1:n_x*n_y*n_z ]
-    n::Int32 = 0
+    varidx::Array{Int64,3}                   = zeros(Bool,size(q));
+    xyz   ::Vector{Tuple{Int64,Int64,Int64}} = [ (0,0,0) for i in 1:n_x*n_y*n_z ]
+    n::Int64 = 0
     for x in 1:n_x
         for y in 1:n_y
             for z in 1:n_z
@@ -70,9 +70,9 @@ function create_My_Eval(q::Array{Float64,3})
     end
 
     # Find the equations
-    eqidx = Dict{ Tuple{String,Int32,Int32},Int32}() # first idx is "xy" or "xz"
-    mr_eq ::Vector{ Tuple{String,Int32,Int32} }   = [ ("",0,0)   for i in 1:n_x*(n_y+n_z) ]
-    m::Int32 = 0
+    eqidx = Dict{ Tuple{String,Int64,Int64},Int64}() # first idx is "xy" or "xz"
+    mr_eq ::Vector{ Tuple{String,Int64,Int64} }   = [ ("",0,0)   for i in 1:n_x*(n_y+n_z) ]
+    m::Int64 = 0
     for x in 1:n_x
         for y in 1:n_y
             if marg_xy[x,y] > 0
@@ -129,13 +129,13 @@ function create_My_Eval(q::Array{Float64,3})
         end
     end
 
-    Gt::SparseMatrixCSC{Float64,Int32} = sparse(denseGt)
-    local Gt_K::Array{Int32,1}
-    local Gt_L::Array{Int32,1}
+    Gt::SparseMatrixCSC{Float64,Int64} = sparse(denseGt)
+    local Gt_K::Array{Int64,1}
+    local Gt_L::Array{Int64,1}
     (Gt_K,Gt_L) = findn(Gt)
 
     TmpFloat       :: DataType  = BigFloat
-    bigfloat_nbits :: Int32     = 256
+    bigfloat_nbits :: Int64     = 256
 
 
     return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, marg_xy,marg_xz,marg_x, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
@@ -177,7 +177,7 @@ import MathProgBase.isconstrlinear
 # initialize()
 function initialize(e::My_Eval, requested_features::Vector{Symbol})
     for feat in requested_features
-        if feat ∉ e.features_list
+        if feat ∉ features_list
             error("infdecomp.jl: initialize():\n-   JuliaOpt:MathProgBase is asking for a feature ($feat) that I don't have.-   Maybe use another solver?")
         end
     end
@@ -289,7 +289,7 @@ end # eval_grad_f()
 
 # Constraint Jacobian
 # jac_structure() --- zero-nonzero pattern of constraint Jacobian
-jac_structure(e::My_Eval) :: Tuple(Vector{Int32},Vector{Int32})   =  ( e.Gt_L , e.Gt_K )
+jac_structure(e::My_Eval) :: Tuple{Vector{Int64},Vector{Int64}}   =  ( e.Gt_L , e.Gt_K )
 # Note: Gt is transposed, so K and L are swapped [K: rows of G^T; L: columns of G^T]
 
 # eval_jac_g() --- constraint Jacobian   -> J
@@ -324,7 +324,9 @@ end
 # Since G(.) is linear, it's Hessian is 0 anyway, so it won't bother us.
 
 # hesslag_structure() --- zero-nonzero pattern of Hessian [wrt x] of the Lagrangian
-function hesslag_structure(e::My_Eval)  :: Tuple(Vector{Int32},Vector{Int32})
+function hesslag_structure(e::My_Eval)  :: Tuple{Vector{Int64},Vector{Int64}}
+    K = Vector{Int64}()
+    L = Vector{Int64}()
     counter = 0
     for y = 1:e.n_y
         for z = 1:e.n_z
@@ -333,8 +335,8 @@ function hesslag_structure(e::My_Eval)  :: Tuple(Vector{Int32},Vector{Int32})
                 i = e.varidx[x,y,z]
                 if i>0
                     counter += 1
-                    K[counter] = i
-                    L[counter] = i
+                    push!(K,i)
+                    push!(L,i)
                 end
             end
             # Now off-diagonal.
@@ -346,15 +348,14 @@ function hesslag_structure(e::My_Eval)  :: Tuple(Vector{Int32},Vector{Int32})
                     i_u = e.varidx[u,y,z]
                     if i_x>0 && i_u>0
                         counter += 1
-                        K[counter] = i_x
-                        L[counter] = i_u
+                        push!(K,i_x)
+                        push!(L,i_u)
                     end
                 end
-            end#for z
-        end# for y
-
-    end #^ for yz
-    return nothing
+            end
+        end# for z
+    end #^ for y
+    return (K,L)
     ;
 end # hesslag_structure()
 
@@ -431,27 +432,27 @@ end # eval_hesslag()
 # U S I N G   I T
 # ----------------
 
-numo_vars(e::My_Eval)                   :: Int32            = e.n
-numo_constraints(e::My_Eval)            :: Int32            = e.m
-constraints_lowerbounds_vec(e::My_Eval) :: Vector{Float64}  = zeros{Float64}(e.m)
-constraints_upperbounds_vec(e::My_Eval) :: Vector{Float64}  = zeros{Float64}(e.m)
-vars_lowerbounds_vec(e::My_Eval)        :: Vector{Float64}  = zeros{Float64}(e.n)
+numo_vars(e::My_Eval)                   :: Int64            = e.n
+numo_constraints(e::My_Eval)            :: Int64            = e.m
+constraints_lowerbounds_vec(e::My_Eval) :: Vector{Float64}  = zeros(Float64,e.m)
+constraints_upperbounds_vec(e::My_Eval) :: Vector{Float64}  = zeros(Float64,e.m)
+vars_lowerbounds_vec(e::My_Eval)        :: Vector{Float64}  = zeros(Float64,e.n)
 vars_upperbounds_vec(e::My_Eval)        :: Vector{Float64}  = [Inf  for j=1:e.n]
 
 
 type Set_Data{T1,T2,T3}
-    Xidx :: Dict{T1,Int32}
-    Yidx :: Dict{T2,Int32}
-    Zidx :: Dict{T3,Int32}
+    Xidx :: Dict{T1,Int64}
+    Yidx :: Dict{T2,Int64}
+    Zidx :: Dict{T3,Int64}
     X    :: Vector{T1}
     Y    :: Vector{T1}
     Z    :: Vector{T1}
 end
 
 function create_Set_Data{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}) :: Set_Data{T1,T2,T3}
-    Xidx = Dict{T1,Int32}()
-    Yidx = Dict{T2,Int32}()
-    Zidx = Dict{T3,Int32}()
+    Xidx = Dict{T1,Int64}()
+    Yidx = Dict{T2,Int64}()
+    Zidx = Dict{T3,Int64}()
 
     for (xyz,val) in pdf
         x,y,z = xyz
@@ -492,9 +493,9 @@ end
 function create_stuff{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType=BigFloat) :: Tuple{ Set_Data{T1,T2,T3}, My_Eval }
     sd = create_Set_Data(pdf)
 
-    Q = zeros(Float64,length(X),length(Y),length(Z))
+    Q = zeros(Float64,length(sd.X),length(sd.Y),length(sd.Z))
     for (xyz,val) in pdf
-        Q[ sd.X[xyz[1]], sd.Y[xyz[2]], sd.Z[xyz[3]] ] = val
+        Q[ sd.Xidx[xyz[1]], sd.Yidx[xyz[2]], sd.Zidx[xyz[3]] ] = val
     end
 
     e = create_My_Eval(Q)
@@ -509,10 +510,10 @@ using Base.Test
 function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::DataType=BigFloat)
     const model = MathProgBase.NonlinearModel(solver)
     const sd,myeval = create_stuff(pdf)
-    const lb = myeval.constraints_lowerbounds_vec
-    const ub = myeval.constraints_upperbounds_vec
-    const l = myeval.vars_lowerbounds_vec
-    const u = myeval.vars_upperbounds_vec
+    const lb = constraints_lowerbounds_vec(myeval)
+    const ub = constraints_upperbounds_vec(myeval)
+    const l = vars_lowerbounds_vec(myeval)
+    const u = vars_upperbounds_vec(myeval)
 
     MathProgBase.loadproblem!(model, myeval.n, myeval.m, l, u, lb, ub, :Max, myeval)
 
