@@ -506,7 +506,7 @@ end #^ create_stuff
 using Base.Test
 
 
-function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType=BigFloat, solver=MathProgBase.defaultNLPsolver)
+function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::DataType=BigFloat)
     const model = MathProgBase.NonlinearModel(solver)
     const sd,myeval = create_stuff(pdf)
     const lb = myeval.constraints_lowerbounds_vec
@@ -540,6 +540,7 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType=
 #    MathProgBase.optimize!(m)
 #    stat = MathProgBase.status(m)
 #    @test stat == :Optimal
+    ;
 end
 
 end # module
