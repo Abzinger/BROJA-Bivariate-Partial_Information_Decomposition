@@ -203,15 +203,15 @@ function condEntropy{TFloat}(e::My_Eval, p::Vector{Float64}, dummy::TFloat)   ::
         for z = 1:e.n_z
             P_yz = TFloat(0.)
             for x = 1:e.n_x
-                i = e.varidx(x,y,z)
+                i = e.varidx[x,y,z]
                 if i>0
-                    P_yz += e.p[i]
+                    P_yz += p[i]
                 end
             end
             for x = 1:e.n_x
-                i = e.varidx(x,y,z)
+                i = e.varidx[x,y,z]
                 if i>0
-                    p_xyz = e.p[i]
+                    p_xyz = p[i]
                     s  +=  (  p_xyz ≤ 0 ?   TFloat(0.)   :   - p_xyz*log( p_xyz / P_yz )   )
                 end
             end
@@ -223,7 +223,7 @@ end
 
 function eval_f(e::My_Eval, x::Vector{Float64}) :: Float64
     local condent::Float64
-    if TmpFloat==BigFloat
+    if e.TmpFloat==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         condent = condEntropy(e,x,BigFloat())
@@ -238,7 +238,7 @@ end
 
 # eval_g --- eval of constraint into g
 function eval_g(e::My_Eval, g::Vector{Float64}, x::Vector{Float64})  :: Void
-    g .= reshape( reshape(x,1,e.n)*e.Gt , e.m, ) .- rhs
+    g .= reshape( reshape(x,1,e.n)*e.Gt , e.m, ) .- e.rhs
     return nothing
     ;
 end # eval_g()
@@ -254,16 +254,16 @@ function ∇f{TFloat}(e::My_Eval, grad::Vector{Float64}, p::Vector{Float64}, dum
             # make marginal P(*yz)
             P_yz::TFloat = TFloat(0.)
             for x = 1:e.n_x
-                i = e.varidx(x,y,z)
+                i = e.varidx[x,y,z]
                 if i>0
-                    P_yz += e.p[i]
+                    P_yz += p[i]
                 end
             end
             # make log-expressions  log( P(xyz) / P(*yz) )
             for x = 1:e.n_x
-                i = e.varidx(x,y,z)
+                i = e.varidx[x,y,z]
                 if i>0
-                    P_xyz::TFloat = TFloat( e.p[i] )
+                    P_xyz::TFloat = TFloat( p[i] )
                     grad[i] = Float64(  P_xyz ≤ 0 ?  TFloat(0.)  : log( P_xyz / P_yz )  )
                 end
             end
@@ -274,7 +274,7 @@ end # ∇f()
 
 # eval_grad_f --- eval gradient of objective function
 function eval_grad_f(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}) :: Void
-    if TmpFloat==BigFloat
+    if e.TmpFloat==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         ∇f(e,g,x,BigFloat())
@@ -360,16 +360,16 @@ function hesslag_structure(e::My_Eval)  :: Tuple{Vector{Int64},Vector{Int64}}
 end # hesslag_structure()
 
 
-function Hess{TFloat}(e::My_Eval, H::Vector{Float64}, x::Vector{Float64}, σ::Float64, dummy::TFloat) :: Void
+function Hess{TFloat}(e::My_Eval, H::Vector{Float64}, p::Vector{Float64}, σ::Float64, dummy::TFloat) :: Void
     counter = 0
     for y = 1:e.n_y
         for z = 1:e.n_z
             # make marginal P(*yz)
             P_yz  ::TFloat = TFloat(0.)
-            for x = 1:n_X
+            for x = 1:e.n_x
                 i = e.varidx[x,y,z]
                 if i>0
-                    P_yz += e.p[i]
+                    P_yz += p[i]
                 end
             end
 
@@ -382,7 +382,7 @@ function Hess{TFloat}(e::My_Eval, H::Vector{Float64}, x::Vector{Float64}, σ::Fl
                 i = e.varidx[x,y,z]
                 if i>0
                     counter += 1
-                    P_xyz = e.p[i]
+                    P_xyz = p[i]
                     H[counter] = Float64(  TFloat(σ)*( P_yz - P_xyz )/(  P_yz * P_xyz )  )
                 end
             end
@@ -409,7 +409,7 @@ end # eval_hesslag()
 
 # eval_hesslag() --- Hessian [wrt x] of the Lagrangian
 function eval_hesslag(e::My_Eval, H::Vector{Float64}, x::Vector{Float64}, σ::Float64, μ::Vector{Float64}) :: Void
-    if TmpFloat==BigFloat
+    if e.TmpFloat==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         Hess(e,H,x,σ,BigFloat())
