@@ -1,7 +1,8 @@
 #!/usr/bin/python3
+import TartuSynergy
 import sys
 import random
-import TartuSynergy
+import json
 #
 # Main function: main()
 # =====================
@@ -242,15 +243,18 @@ class Fun_Data_xorand:
         return 1/2
 the_available_functions["XORAND"] = Fun_Data_xorand()
 
-def test__solve_time_series(fun_obj, noise_level=.05,   L_range=[400*i for i in range(1,26)], verbose=False):
+def test__solve_time_series(filename, fun_obj, noise_level,   numo_samples, verbose=False):
     y_list=[]
     z_list=[]
     x_list=[]
     counts = dict()
-    old_L=0
-    for L in L_range:
-        # fetch next few samples
-        for i in range(old_L, L):
+
+    if numo_samples == 0:
+        pdf = fun_obj.true_input_distrib()
+    else:
+        L = numo_samples
+
+        for i in range(0, L):
             if fun_obj.n_u>0: new_y = random.randint(0,fun_obj.n_u-1)
             else:             new_y = None
             if fun_obj.n_v>0: new_z = random.randint(0,fun_obj.n_v-1)
@@ -263,53 +267,82 @@ def test__solve_time_series(fun_obj, noise_level=.05,   L_range=[400*i for i in 
             z_list.append( z )
 
         # add noise
-        for i in range(old_L,L):
+        for i in range(0,L):
             noise = 0
             p = random.random();
             if p<noise_level:
                 x_list[i] = fun_obj.noise( x_list[i] )
 
         # update counts
-        for i in range(old_L,L):
+        for i in range(0,L):
             if (x_list[i],y_list[i],z_list[i]) in counts.keys():   counts[(x_list[i],y_list[i],z_list[i])] += 1
             else:                                                  counts[(x_list[i],y_list[i],z_list[i])] =  1
 
         # make pdf from counts
         pdf = dict()
         for xyz,c in counts.items():  pdf[xyz] = c/float(L)
+        # Finished sampling creation of pdf
+    #END of creation of pdf
 
-        old_L = L
-        # END OF creation of pdf
-
+    if filename != None:
+        with open(filename, 'w') as f:
+            json.dump(TartuSynergy.sorted_pdf(pdf), f)
+        return 0
+    else:
         print("pdf=",TartuSynergy.sorted_pdf(pdf))
         print("test__solve_time_series(): L = ",L)
         retval=TartuSynergy.solve_PDF( pdf, fun_obj.true_input_distrib(), fun_obj.true_result_distrib(), fun_obj.true_CI(), fun_obj.true_SI() , verbose=verbose)
         optpdf,feas,kkt,CI,SI = retval
         print("CI:",CI,"  SI:",SI,"  sum of marginal eqns violations:",feas,"  maximal KKT-system constraint violation:",kkt)
-    return retval
+        return retval
+    #
 #^ test__solve_time_series()
 
 ####################################################################################################
 
 def print_parameters_usage_msg():
-    print("Usage: time_series.py [-v] fun noiselevel #")
-    print(" where  fun          is one of: and, xor;")
+    print("Usage: time_series.py [ -h  |  ( [-v|w] fun noiselevel # )")
+    print("time_series.py -h    lists the functions")
+    print("Otherwise,")
+    print("        fun          is a function;")
     print("        noiselevel   is the probability of noise, in [0,1[;")
-    print("        #            is number of samples.")
-    print("        -v           verbose mode")
-    print("Or use interactive mode: python3 -i time_series.py,")
-    print("and call main().")
+    print("        #            is number of samples; with 0 the true distribution is used.")
+    print("Unless -w is given, the information decomposition is computed.")
+    print("In that case:")
+    print("        -v           sets verbose mode")
+    print("With -w, the probability density function is written to")
+    print("the file `fun-noiselevel-#.dens'")
 
 def main(sys_argv):
     verbose_mode = False
-    if len(sys_argv)==5 and sys_argv[1]=='-v':
-        verbose_mode = True
+    file_mode    = False
+    if len(sys_argv)==5:
+        if sys_argv[1]=='-v':
+            verbose_mode = True
+        elif sys_argv[1]=='-w':
+            file_mode = True
+        else:
+            print("There's something wrong with the parameters!")
+            print_parameters_usage_msg()
+            return 1
         del sys_argv[1]
+
     if len(sys_argv) <= 1:
         print_parameters_usage_msg()
+        return 0
+    elif len(sys_argv) == 2:
+        if sys_argv[1]=='-h':
+            print("Available functions:")
+            print(the_available_functions.keys())
+            return 0
+        else:
+            print("There's something wrong with the parameters!")
+            print_parameters_usage_msg()
+            return 1
     elif len(sys_argv) != 4:
         print("There's something wrong with the parameters!")
         print_parameters_usage_msg()
+        return 1
     else:
         fun_S        = (str(sys_argv[1])).upper()
         n_u=n_v=n_w  = None
@@ -333,14 +366,21 @@ def main(sys_argv):
             print("Something is wrong with the noise probability ", noise_p)
             print_parameters_usage_msg()
             valid_parameters = False
-        if numo_samples<1 or numo_samples > 1.e20:
+        if numo_samples<0 or numo_samples > 1.e20:
             print("Something is wrong with the number of samples", numo_samples)
             print_parameters_usage_msg()
             valid_parameters = False
         if valid_parameters:
-#            solvers.options['show_progress'] = False
-            retval = test__solve_time_series(fun_obj, noise_p, [numo_samples], verbose=verbose_mode)
+#           solvers.options['show_progress'] = False
+            if file_mode:
+                filename = fun_S+"-"+str(noise_p)+"-"+str(numo_samples)+".dens"
+            else:
+                filename = None
+            retval = test__solve_time_series(filename, fun_obj, noise_p, numo_samples, verbose=verbose_mode)
             return retval
+        else:
+            return 1
+    #else main work
 #^ main()
 
 main(sys.argv)
