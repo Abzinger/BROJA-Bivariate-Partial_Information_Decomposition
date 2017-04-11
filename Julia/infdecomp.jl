@@ -472,8 +472,8 @@ function create_Set_Data{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}) :: Set_Da
     end
 
     X ::Vector{T1} = [ anX  for i = 1:length(Xidx) ]
-    Y ::Vector{T1} = [ aY   for i = 1:length(Yidx) ]
-    Z ::Vector{T1} = [ aZ   for i = 1:length(Zidx) ]
+    Y ::Vector{T2} = [ aY   for i = 1:length(Yidx) ]
+    Z ::Vector{T3} = [ aZ   for i = 1:length(Zidx) ]
 
     for (x,i) in Xidx
         X[i] = x
