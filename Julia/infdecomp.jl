@@ -515,7 +515,7 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
     const l = vars_lowerbounds_vec(myeval)
     const u = vars_upperbounds_vec(myeval)
 
-    MathProgBase.loadproblem!(model, myeval.n, myeval.m, l, u, lb, ub, :Max, myeval)
+    MathProgBase.loadproblem!(model, myeval.n, myeval.m, l, u, lb, ub, :Min, myeval)
 
     MathProgBase.optimize!(model)
     stat = MathProgBase.status(model)

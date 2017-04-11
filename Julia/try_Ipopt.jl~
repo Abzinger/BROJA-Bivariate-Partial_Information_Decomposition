@@ -170,7 +170,7 @@ function try_dist()
 end
 function test()
              q = try_dist()
-    	     InfDecomp.do_it(q,Mosek.MosekSolver())	
+    	     InfDecomp.do_it(q,Ipopt.IpoptSolver())	
 	
 end
 

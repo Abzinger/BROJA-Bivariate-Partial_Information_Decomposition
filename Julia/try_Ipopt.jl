@@ -168,9 +168,9 @@ function try_dist()
 	return pdf
 	;
 end
-function test()
+function test_Ipopt()
              q = try_dist()
-    	     InfDecomp.do_it(q,Mosek.MosekSolver())	
+    	     InfDecomp.do_it(q,Ipopt.IpoptSolver())	
 	
 end
 
