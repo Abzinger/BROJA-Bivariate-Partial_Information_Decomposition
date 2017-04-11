@@ -445,8 +445,8 @@ type Set_Data{T1,T2,T3}
     Yidx :: Dict{T2,Int64}
     Zidx :: Dict{T3,Int64}
     X    :: Vector{T1}
-    Y    :: Vector{T1}
-    Z    :: Vector{T1}
+    Y    :: Vector{T2}
+    Z    :: Vector{T3}
 end
 
 function create_Set_Data{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}) :: Set_Data{T1,T2,T3}
