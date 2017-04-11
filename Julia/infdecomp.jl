@@ -454,22 +454,26 @@ function create_Set_Data{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}) :: Set_Da
     Yidx = Dict{T2,Int64}()
     Zidx = Dict{T3,Int64}()
 
+    anX=aY=aZ=nothing
     for (xyz,val) in pdf
         x,y,z = xyz
         if x ∉ keys(Xidx)
             Xidx[x] = length(Xidx)+1
+            anX = x
         end
         if y ∉ keys(Yidx)
             Yidx[y] = length(Yidx)+1
+            aY = y
         end
         if z ∉ keys(Zidx)
             Zidx[z] = length(Zidx)+1
+            aZ = z
         end
     end
 
-    X ::Vector{T1} = [ Xidx[[keys(Xidx)...][1]]  for i = 1:length(Xidx) ]
-    Y ::Vector{T1} = [ Yidx[[keys(Yidx)...][1]]  for i = 1:length(Yidx) ]
-    Z ::Vector{T1} = [ Zidx[[keys(Zidx)...][1]]  for i = 1:length(Zidx) ]
+    X ::Vector{T1} = [ anX  for i = 1:length(Xidx) ]
+    Y ::Vector{T1} = [ aY   for i = 1:length(Yidx) ]
+    Z ::Vector{T1} = [ aZ   for i = 1:length(Zidx) ]
 
     for (x,i) in Xidx
         X[i] = x
