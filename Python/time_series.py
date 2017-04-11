@@ -243,6 +243,13 @@ class Fun_Data_xorand:
         return 1/2
 the_available_functions["XORAND"] = Fun_Data_xorand()
 
+def to_list(x):
+    if x == ():
+        return []
+    if type(x) != tuple:
+        return x
+    return [to_list(x[0])] + to_list(x[1:])
+
 def test__solve_time_series(filename, fun_obj, noise_level,   numo_samples, verbose=False):
     y_list=[]
     z_list=[]
@@ -286,17 +293,22 @@ def test__solve_time_series(filename, fun_obj, noise_level,   numo_samples, verb
 
     if filename != None:
         with open(filename, 'w') as f:
-            json.dump(TartuSynergy.sorted_pdf(pdf), f)
+            array = []
+            for k,v in pdf.items():
+                array.append(   [ to_list(k), v ]   )
+            json.dump(array, f)
         return 0
     else:
         print("pdf=",TartuSynergy.sorted_pdf(pdf))
-        print("test__solve_time_series(): L = ",L)
+        print("test__solve_time_series(): L = ",numo_samples)
         retval=TartuSynergy.solve_PDF( pdf, fun_obj.true_input_distrib(), fun_obj.true_result_distrib(), fun_obj.true_CI(), fun_obj.true_SI() , verbose=verbose)
         optpdf,feas,kkt,CI,SI = retval
         print("CI:",CI,"  SI:",SI,"  sum of marginal eqns violations:",feas,"  maximal KKT-system constraint violation:",kkt)
         return retval
     #
 #^ test__solve_time_series()
+
+
 
 ####################################################################################################
 
