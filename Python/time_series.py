@@ -301,8 +301,9 @@ def test__solve_time_series(filename, fun_obj, noise_level,   numo_samples, verb
 ####################################################################################################
 
 def print_parameters_usage_msg():
-    print("Usage: time_series.py [ -h  |  ( [-v|w] fun noiselevel # )")
-    print("time_series.py -h    lists the functions")
+    print("Usage:   time_series.py -h")
+    print("   or:   time_serie.py  [-v|w] fun noiselevel # ")
+    print("time_series.py -h    lists the functions.")
     print("Otherwise,")
     print("        fun          is a function;")
     print("        noiselevel   is the probability of noise, in [0,1[;")
