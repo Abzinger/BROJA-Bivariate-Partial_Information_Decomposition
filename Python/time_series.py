@@ -63,7 +63,7 @@ class Fun_Data_rdn:
         return 1
 
 
-the_available_functions["RDN"] = Fun_Data_rdn
+the_available_functions["RDN"] = Fun_Data_rdn()
 
 
 class Fun_Data_unq:
