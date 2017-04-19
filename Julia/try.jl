@@ -8,17 +8,17 @@ function try_dist(w::String)
 	 pdf = Dict()
 	 #pdf = read_pdf(w)
 	 pdf = read_pdf("Data/$w")
-	 return pdf	
+	 return pdf
 	;
 end
-function test(i::Int64,w::String)
-	 q = try_dist(w)
-if (i == 0)
+function test(solver::Symbol,w::String)
+    q = try_dist(w)
+    if (solver == :Mosek)
 	InfDecomp.do_it(q,Mosek.MosekSolver())
-elseif (i == 1)
+    elseif (solver == :Ipopt)
 	InfDecomp.do_it(q,Ipopt.IpoptSolver())
-end
-	
+    end
+
 end
 
 
