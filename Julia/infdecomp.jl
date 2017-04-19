@@ -523,7 +523,16 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
 
     MathProgBase.optimize!(model)
     stat = MathProgBase.status(model)
-
+    println("Status is: ", stat)
+    println("Constraint duals are: ", MathProgBase.getconstrduals(model))
+    println("Reduced costs are: ",  MathProgBase.getreducedcosts(model))
+    println("Solution is: ", MathProgBase.getsolution(model))
+    sub::Array{Int32,myeval.m} = zeros(Int32,myeval.m);
+    for i in 1:myeval.m
+        sub[i]=i
+    end
+    
+    Mosek.getdviolcon(model,1,sub)
 
     # @test stat == :Optimal
     # @show MathProgBase.getobjval(model)
