@@ -18,7 +18,6 @@ function array_to_dict(a) :: Dict{Tuple{Any,Any,Any}, Float64}
     local d = Dict{Tuple{Any,Any,Any}, Float64}()
     for p in a
         t = Tuple{Any,Any,Any}( to_tuple( p[1] ) )
-        @show t, typeof(t), p[2]
         d[t] = Float64( p[2] )
     end
     return d

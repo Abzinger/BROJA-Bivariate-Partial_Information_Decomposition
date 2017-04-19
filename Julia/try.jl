@@ -3,6 +3,9 @@ include("read_pdf.jl")
 using InfDecomp
 using Read_PDF
 
+using Mosek
+using Ipopt
+
 
 function try_dist(w::String)
 	 pdf = Dict()
