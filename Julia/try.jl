@@ -7,7 +7,7 @@ using Read_PDF
 function try_dist(w::String)
 	 pdf = Dict()
 	 #pdf = read_pdf(w)
-	 pdf = read_pdf("Data/$w")
+	 pdf = read_pdf("$w")
 	 return pdf
 	;
 end
