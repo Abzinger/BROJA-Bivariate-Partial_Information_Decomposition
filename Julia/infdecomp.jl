@@ -167,8 +167,9 @@ import MathProgBase.isobjquadratic
 import MathProgBase.isconstrlinear
 # import MathProgBase.obj_expr
 # import MathProgBase.constr_expr
-# import MathProgBase.getreducedcosts
-# import MathProgBase.getconstrduals
+import MathProgBase.getreducedcosts
+import MathProgBase.getconstrduals
+import MathProgBase.getsolution
 
 # ------------
 # B a s i c s
@@ -236,6 +237,22 @@ function eval_f(e::My_Eval, x::Vector{Float64}) :: Float64
     ;
 end
 
+# eval_f_t used later for higher precision
+function eval_f_t(e::My_Eval, x::Vector{Float64}) :: TFloat
+    local condent::Float64
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        condent = condEntropy(e,x,BigFloat())
+        setprecision(BigFloat,prc)
+    else
+        condent = condEntropy(e,x,Float64())
+    end
+
+    return -condent
+    ;
+end
+
 # eval_g --- eval of constraint into g
 function eval_g(e::My_Eval, g::Vector{Float64}, x::Vector{Float64})  :: Void
     g .= reshape( reshape(x,1,e.n)*e.Gt , e.m, ) .- e.rhs
@@ -248,7 +265,7 @@ end # eval_g()
 # E v a l u a t i o n :   1 s t   o r d e r
 # ------------------------------------------
 
-function ∇f{TFloat}(e::My_Eval, grad::Vector{Float64}, p::Vector{Float64}, dummy::TFloat) :: Void
+function ∇f{TFloat,TFloat_2}(e::My_Eval, grad::Vector{TFloat_2}, p::Vector{Float64}, dummy::TFloat) :: Void
     for y = 1:e.n_y
         for z = 1:e.n_z
             # make marginal P(*yz)
@@ -264,7 +281,7 @@ function ∇f{TFloat}(e::My_Eval, grad::Vector{Float64}, p::Vector{Float64}, dum
                 i = e.varidx[x,y,z]
                 if i>0
                     P_xyz::TFloat = TFloat( p[i] )
-                    grad[i] = Float64(  P_xyz ≤ 0 ?  TFloat(0.)  : log( P_xyz / P_yz )  )
+                    grad[i] = TFloat_2(  P_xyz ≤ 0 ?  TFloat(0.)  : log( P_xyz / P_yz )  )
                 end
             end
         end# for y
@@ -554,6 +571,60 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
 #    MathProgBase.optimize!(m)
 #    stat = MathProgBase.status(m)
 #    @test stat == :Optimal
+    ;
+end
+
+#--------------------------------
+#Primal Feasibility 
+#--------------------------------
+function marg_dist(model, myeval)
+    q =getsolution(model)
+    marg_p = myeval.rhs
+    marg_q = myeval.Gt' * q
+    dist_inf = 0.0
+    dist_1 = 0.0
+    dist_2_sq = 0.0
+    for i in 1:myeval.m
+        ell = abs(marg_q[i] - marg_p[i])
+        dist_1 += ell
+        dist_2_sq += (ell)^2
+        if ell > dist_inf
+            dist_inf = ell
+        end
+    end
+    dist_2 = sqrt(dist_2_sq) 
+    return dist_1, dist_2, dist_inf
+    ;
+end
+
+#-----------------------------------------------
+#Dual Feasibility and Complementary Slackness
+#-----------------------------------------------
+function KKT_feas(model, myeval)
+    q = getsolution(model)
+    grad = zeros(BigFloat, myeval.n)
+    InfDecomp.∇f(myeval, grad, q, BigFloat(.0))
+    cduals_ = getconstrduals(model)
+    cduals = Vector{BigFloat}(cduals_)
+    reduced = getreducedcosts(model)
+    vduals = -myeval.Gt * cduals - grad #wrong!!!
+    if (vduals .>= zeros(BigFloat,myeval.n)) == trues(myeval.n)
+        println("The dual is feasible")
+    else
+        println("Dual Feasibility violated")
+        println("reduced costs: ", vduals)
+    end
+    comp_slack = vduals .* q
+    comp_inf = 0.0
+    comp_1 = 0.0
+    for s in comp_slack
+        ell = abs(s)
+        comp_1 += ell
+        if ell > comp_inf
+            comp_inf = ell
+        end
+    end    
+    return comp_1, comp_inf
     ;
 end
 
