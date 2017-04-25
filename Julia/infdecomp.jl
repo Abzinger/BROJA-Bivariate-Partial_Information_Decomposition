@@ -197,7 +197,7 @@ isconstrlinear(::My_Eval, ::Any) = true
 # ------------------------------------------
 # E v a l u a t i o n :   0 t h   o r d e r
 # ------------------------------------------
-function condEntropy{TFloat}(e::My_Eval, p::Vector{Float64}, dummy::TFloat)   :: TFloat
+function condEntropy{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat
     # m_yz = marg_yz(e,p,dummy)
     s::TFloat = TFloat(0.)
     for y = 1:e.n_y
@@ -222,23 +222,7 @@ function condEntropy{TFloat}(e::My_Eval, p::Vector{Float64}, dummy::TFloat)   ::
     ;
 end
 
-function eval_f(e::My_Eval, x::Vector{Float64}) :: Float64
-    local condent::Float64
-    if e.TmpFloat==BigFloat
-        prc = precision(BigFloat)
-        setprecision(BigFloat,e.bigfloat_nbits)
-        condent = condEntropy(e,x,BigFloat())
-        setprecision(BigFloat,prc)
-    else
-        condent = condEntropy(e,x,Float64())
-    end
-
-    return -condent
-    ;
-end
-
-# eval_f_t used later for higher precision
-function eval_f_t(e::My_Eval, x::Vector{Float64}) :: TFloat
+function eval_f{TFloat_2,TFloat}(e::My_Eval, x::Vector{TFloat_2},dummy::TFloat=Float64(0)) :: TFloat
     local condent::Float64
     if e.TmpFloat==BigFloat
         prc = precision(BigFloat)
@@ -265,7 +249,7 @@ end # eval_g()
 # E v a l u a t i o n :   1 s t   o r d e r
 # ------------------------------------------
 
-function ∇f{TFloat,TFloat_2}(e::My_Eval, grad::Vector{TFloat_2}, p::Vector{Float64}, dummy::TFloat) :: Void
+function ∇f{TFloat,TFloat_2}(e::My_Eval, grad::Vector{TFloat_2}, p::Vector{TFloat_2}, dummy::TFloat) :: Void
     for y = 1:e.n_y
         for z = 1:e.n_z
             # make marginal P(*yz)
@@ -578,7 +562,7 @@ end
 #Primal Feasibility 
 #--------------------------------
 function marg_dist(model, myeval)
-    q =getsolution(model)
+    q = getsolution(model)
     marg_p = myeval.rhs
     marg_q = myeval.Gt' * q
     dist_inf = 0.0
@@ -600,31 +584,46 @@ end
 #-----------------------------------------------
 #Dual Feasibility and Complementary Slackness
 #-----------------------------------------------
-function KKT_feas(model, myeval)
-    q = getsolution(model)
+type Feasibility_Stats
+    obj_val             :: BigFloat
+    q_nonnegativity     :: BigFloat
+    marginals_1         :: BigFloat
+    marginals_2         :: BigFloat
+    marginals_Inf       :: BigFloat
+    mu_nonneg_viol      :: BigFloat
+    complementarity_max :: BigFloat
+    complementarity_sum :: BigFloat
+end
+
+
+function check_feasibility(model, myeval) :: Feasibility_Stats
+    fstat  = Feasibility_Stats(0,0,0,0,0,0,0,0)
+
+
+    q = Vector{BigFloat}( getsolution(model) )
+
+    fstat.obj_val = eval_f(myeval,q,BigFloat(0))
+
+    fstat.q_nonnegativity = -minimum(q)
+
+    equation = (q'*myeval.Gt)' - myeval.rhs
+    fstat.marginals_1   = norm(equation,1)
+    fstat.marginals_2   = norm(equation,2)
+    fstat.marginals_Inf = norm(equation,Inf)
+
     grad = zeros(BigFloat, myeval.n)
     InfDecomp.∇f(myeval, grad, q, BigFloat(.0))
-    cduals_ = getconstrduals(model)
-    cduals = Vector{BigFloat}(cduals_)
-    reduced = getreducedcosts(model)
-    vduals = -myeval.Gt * cduals - grad #wrong!!!
-    if (vduals .>= zeros(BigFloat,myeval.n)) == trues(myeval.n)
-        println("The dual is feasible")
-    else
-        println("Dual Feasibility violated")
-        println("reduced costs: ", vduals)
-    end
-    comp_slack = vduals .* q
-    comp_inf = 0.0
-    comp_1 = 0.0
-    for s in comp_slack
-        ell = abs(s)
-        comp_1 += ell
-        if ell > comp_inf
-            comp_inf = ell
-        end
-    end    
-    return comp_1, comp_inf
+
+    lambda = Vector{BigFloat}( getconstrduals(model) )
+
+    mu = grad - myeval.Gt*lambda
+
+    fstat.mu_nonneg_viol = -minimum(mu)
+
+    fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
+    fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
+
+    return fstat
     ;
 end
 

@@ -34,23 +34,24 @@ function test(solver::Symbol,w::String)
     if (solver == :Mosek)
         println("Start optimization with Mosek...")
 	sd,myeval,model = InfDecomp.do_it(p, Mosek.MosekSolver())
-        comp_1, comp_inf = InfDecomp.KKT_feas(model, myeval)
-        println("Complementary slackness computed...",)
-        dist_1, dist_2, dist_inf = InfDecomp.marg_dist(model, myeval)
-        println("Primal Feasibility violations computed...")
-        create_csv(comp_1,comp_inf,dist_1,dist_2,dist_inf)
-        println("Table is created...")
     elseif (solver == :Ipopt)
         println("Start optimization with Ipopt...")
 	sd,myeval,model = InfDecomp.do_it(p,Ipopt.IpoptSolver())
-        comp_1, comp_inf = InfDecomp.KKT_feas(model, myeval)
-        println("Complementary slackness computed...",)
-        dist_1, dist_2, dist_inf = InfDecomp.marg_dist(model, myeval)
-        println("Primal Feasibility violations computed...")
-        create_csv(comp_1,comp_inf,dist_1,dist_2,dist_inf)
-        println("Table is created...")
     end
+    feasstats = InfDecomp.check_feasibility(model,myeval)
 
+    open("feas_stats.csv", "a") do ffile
+        print(ffile,"# filename")
+        for i in fieldnames(feasstats)
+            print(ffile,",\t",i)
+        end
+        print(ffile,"\n",w)
+        for i in fieldnames(feasstats)
+            print(ffile,",\t",getfield(feasstats,i))
+        end
+        print(ffile,"\n")
+    end
+    return sd,myeval,model
 end
 
 
