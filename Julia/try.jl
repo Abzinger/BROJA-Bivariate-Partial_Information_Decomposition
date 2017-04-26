@@ -5,7 +5,7 @@ using Read_PDF
 using MathProgBase 
 using Mosek
 using Ipopt
-
+using NLopt
 #-------------------------------
 #READS P (CONTROL) PROBABILITY
 #-------------------------------
@@ -37,6 +37,9 @@ function test(solver::Symbol,w::String)
     elseif (solver == :Ipopt)
         println("Start optimization with Ipopt...")
 	sd,myeval,model = InfDecomp.do_it(p,Ipopt.IpoptSolver())
+    elseif (solver == :NLopt)
+        println("Start optimization with NLopt...")
+	sd,myeval,model = InfDecomp.do_it(p,NLopt.NLoptSolver(algorithm=:LD_SLSQP))
     end
     feasstats = InfDecomp.check_feasibility(model,myeval)
 
