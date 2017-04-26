@@ -512,18 +512,20 @@ end #^ create_stuff
 using Base.Test
 
 
-function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::DataType=BigFloat)
+function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::DataType=BigFloat, warmstart :: Bool)
     const model = MathProgBase.NonlinearModel(solver)
     const sd,myeval = create_stuff(pdf)
     const lb = constraints_lowerbounds_vec(myeval)
     const ub = constraints_upperbounds_vec(myeval)
     const l = vars_lowerbounds_vec(myeval)
     const u = vars_upperbounds_vec(myeval)
-    const v = zeros(Float64,myeval.n)
 
     MathProgBase.loadproblem!(model, myeval.n, myeval.m, l, u, lb, ub, :Min, myeval)
 
-    MathProgBase.setwarmstart!(model,v)
+    if warmstart
+        MathProgBase.setwarmstart!(model,ones(Float64,myeval.n))
+    end
+
     MathProgBase.optimize!(model)
     stat = MathProgBase.status(model)
 
