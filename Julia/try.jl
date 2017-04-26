@@ -16,15 +16,6 @@ function read_p(w::String)
 	 return pdf
 	;
 end
-#----------------------
-#TABULATE THE RESULTS
-#----------------------
-function create_csv(comp_1::BigFloat, comp_inf::BigFloat, dist_1::Float64, dist_2::Float64, dist_inf::Float64)
-    open("table.csv", "a") do f
-        println(f,"$comp_1,$comp_inf,$dist_1,$dist_2,$dist_inf")
-    end
-    ;
-end
 
 #-------
 #RUN IT

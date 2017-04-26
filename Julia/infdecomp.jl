@@ -170,6 +170,7 @@ import MathProgBase.isconstrlinear
 import MathProgBase.getreducedcosts
 import MathProgBase.getconstrduals
 import MathProgBase.getsolution
+import MathProgBase.status
 
 # ------------
 # B a s i c s
@@ -562,33 +563,11 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
     ;
 end
 
-#--------------------------------
-#Primal Feasibility 
-#--------------------------------
-function marg_dist(model, myeval)
-    q = getsolution(model)
-    marg_p = myeval.rhs
-    marg_q = myeval.Gt' * q
-    dist_inf = 0.0
-    dist_1 = 0.0
-    dist_2_sq = 0.0
-    for i in 1:myeval.m
-        ell = abs(marg_q[i] - marg_p[i])
-        dist_1 += ell
-        dist_2_sq += (ell)^2
-        if ell > dist_inf
-            dist_inf = ell
-        end
-    end
-    dist_2 = sqrt(dist_2_sq) 
-    return dist_1, dist_2, dist_inf
-    ;
-end
-
 #-----------------------------------------------
 #Dual Feasibility and Complementary Slackness
 #-----------------------------------------------
 type Feasibility_Stats
+    status              :: Symbol
     obj_val             :: BigFloat
     q_nonnegativity     :: BigFloat
     marginals_1         :: BigFloat
@@ -601,8 +580,7 @@ end
 
 
 function check_feasibility(model, myeval) :: Feasibility_Stats
-    fstat  = Feasibility_Stats(0,0,0,0,0,0,0,0)
-
+    fstat  = Feasibility_Stats( status(model) ,  0,0,0,0,0,0,0,0)
 
     q = Vector{BigFloat}( getsolution(model) )
 
