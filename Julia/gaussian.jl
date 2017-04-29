@@ -8,6 +8,7 @@ function gaussint(Σinv::Matrix{Float64}, x::Vector{Float64}) :: BigFloat
 end
 
 function integrate(Σinv::Matrix{Float64}, a::Vector{Float64}, b::Vector{Float64}, alg, n::Int=100) :: Float64
+    local d::Vector{Float64}
     function fun(x::Vector{Float64}, f::Vector{Float64})
         tmp = BigFloat(0)
         y = a + x.*d
@@ -15,7 +16,7 @@ function integrate(Σinv::Matrix{Float64}, a::Vector{Float64}, b::Vector{Float64
             for dj in -1:+1
                 for dk in -1:+1
                     v = gaussint(Σinv, y+[di/1000000,dj/1000000,dk/1000000].*d)
-                    di!=0 || dj!=0 || dk!=0 || ( v*=4 )
+                    di!=0 || dj!=0 || dk!=0 || ( v*=6 )
                     tmp += v
                 end
             end
@@ -28,20 +29,20 @@ function integrate(Σinv::Matrix{Float64}, a::Vector{Float64}, b::Vector{Float64
 
     if alg==:vegas
         integral,error,probability,neval,fail,nregions = vegas(fun,3,1)
-        integral[1] /= d[1]*d[2]*d[3]*divi*12
-        error[1]    /= d[1]*d[2]*d[3]*divi*12
+        integral[1] *= d[1]*d[2]*d[3]/divi/32
+        error[1]    *= d[1]*d[2]*d[3]/divi/32
     elseif alg==:suave
         integral,error,probability,neval,fail,nregions = suave(fun,3,1)
-        integral[1] /= d[1]*d[2]*d[3]*divi*12
-        error[1]    /= d[1]*d[2]*d[3]*divi*12
+        integral[1] *= d[1]*d[2]*d[3]/divi/32
+        error[1]    *= d[1]*d[2]*d[3]/divi/32
     elseif alg==:divonne
         integral,error,probability,neval,fail,nregions = divonne(fun,3,1)
-        integral[1] /= d[1]*d[2]*d[3]*divi*12
-        error[1]    /= d[1]*d[2]*d[3]*divi*12
+        integral[1] *= d[1]*d[2]*d[3]/divi/32
+        error[1]    *= d[1]*d[2]*d[3]/divi/32
     elseif alg==:cuhre
         integral,error,probability,neval,fail,nregions = cuhre(fun,3,1)
-        integral[1] /= d[1]*d[2]*d[3]*divi*12
-        error[1]    /= d[1]*d[2]*d[3]*divi*12
+        integral[1] *= d[1]*d[2]*d[3]/divi/32
+        error[1]    *= d[1]*d[2]*d[3]/divi/32
     elseif alg==:grid
         x = Vector{Float64}([0.,0.,0.])
         avg = BigFloat(0)
