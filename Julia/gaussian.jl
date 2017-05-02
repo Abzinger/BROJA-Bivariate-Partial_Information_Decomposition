@@ -118,4 +118,11 @@ function make_apxgaussian_pdf(Σ::Matrix{Float64}, blocklength::Float64, zero::F
     ;
 end
 
-random_Σ() :: Matrix{Float64} = begin A=ones(3,3)-2*rand(3,3); return A'*A ; end
+function random_Σ() :: Matrix{Float64}
+    A=ones(3,3)-2*rand(3,3);
+    for i = 1:3
+        A[:,i] ./= norm(A[:,i],2)
+    end
+    return A'*A
+    ;
+end
