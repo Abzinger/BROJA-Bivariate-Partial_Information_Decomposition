@@ -567,6 +567,10 @@ end
 #Dual Feasibility and Complementary Slackness
 #-----------------------------------------------
 type Feasibility_Stats
+    var_num             :: Int64
+    x_sz                :: Int64
+    y_sz                :: Int64
+    z_sz                :: Int64
     status              :: Symbol
     obj_val             :: BigFloat
     q_nonnegativity     :: BigFloat
@@ -580,7 +584,13 @@ end
 
 
 function check_feasibility(model, myeval) :: Feasibility_Stats
-    fstat  = Feasibility_Stats( status(model) ,  0,0,0,0,0,0,0,0)
+
+    
+    fstat  = Feasibility_Stats( 0,0,0,0, status(model) ,  0,0,0,0,0,0,0,0)
+    fstat.x_sz = myeval.n_x
+    fstat.y_sz = myeval.n_y
+    fstat.z_sz = myeval.n_z
+    fstat.var_num = myeval.n
 
     q = Vector{BigFloat}( getsolution(model) )
 
@@ -604,7 +614,7 @@ function check_feasibility(model, myeval) :: Feasibility_Stats
 
     fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
     fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
-
+    
     return fstat
     ;
 end
