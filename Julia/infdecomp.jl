@@ -592,28 +592,30 @@ function check_feasibility(model, myeval) :: Feasibility_Stats
     fstat.z_sz = myeval.n_z
     fstat.var_num = myeval.n
 
-    q = Vector{BigFloat}( getsolution(model) )
+    if status(model)==:Solve_Succeeded || status(model)==:Optimal || status(model)==:NearOptimal
+        q = Vector{BigFloat}( getsolution(model) )
 
-    fstat.obj_val = eval_f(myeval,q,BigFloat(0))
+        fstat.obj_val = eval_f(myeval,q,BigFloat(0))
 
-    fstat.q_nonnegativity = -minimum(q)
+        fstat.q_nonnegativity = -minimum(q)
 
-    equation = (q'*myeval.Gt)' - myeval.rhs
-    fstat.marginals_1   = norm(equation,1)
-    fstat.marginals_2   = norm(equation,2)
-    fstat.marginals_Inf = norm(equation,Inf)
+        equation = (q'*myeval.Gt)' - myeval.rhs
+        fstat.marginals_1   = norm(equation,1)
+        fstat.marginals_2   = norm(equation,2)
+        fstat.marginals_Inf = norm(equation,Inf)
 
-    grad = zeros(BigFloat, myeval.n)
-    InfDecomp.∇f(myeval, grad, q, BigFloat(.0))
+        grad = zeros(BigFloat, myeval.n)
+        InfDecomp.∇f(myeval, grad, q, BigFloat(.0))
 
-    lambda = Vector{BigFloat}( getconstrduals(model) )
+        lambda = Vector{BigFloat}( getconstrduals(model) )
 
-    mu = grad - myeval.Gt*lambda
+        mu = grad - myeval.Gt*lambda
 
-    fstat.mu_nonneg_viol = -minimum(mu)
+        fstat.mu_nonneg_viol = -minimum(mu)
 
-    fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
-    fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
+        fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
+        fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
+    end
     
     return fstat
     ;
