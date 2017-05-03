@@ -254,7 +254,6 @@ def test__solve_time_series(filename, npdfs, fun_obj, noise_level,   numo_sample
     y_list=[]
     z_list=[]
     x_list=[]
-    counts = dict()
 
     if numo_samples == 0:
         total_pdf = fun_obj.true_input_distrib()
@@ -262,6 +261,7 @@ def test__solve_time_series(filename, npdfs, fun_obj, noise_level,   numo_sample
         if npdfs==None: npdfs=1
         total_pdf = dict()
         for curr in range(npdfs):
+            counts = dict()
 
             for i in range(0, numo_samples):
                 if fun_obj.n_u>0: new_y = random.randint(0,fun_obj.n_u-1)
