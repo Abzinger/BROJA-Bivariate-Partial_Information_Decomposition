@@ -250,58 +250,78 @@ def to_list(x):
         return x
     return [to_list(x[0])] + to_list(x[1:])
 
-def test__solve_time_series(filename, fun_obj, noise_level,   numo_samples, verbose=False):
+def test__solve_time_series(filename, npdfs, fun_obj, noise_level,   numo_samples, verbose=False):
     y_list=[]
     z_list=[]
     x_list=[]
     counts = dict()
 
     if numo_samples == 0:
-        pdf = fun_obj.true_input_distrib()
+        total_pdf = fun_obj.true_input_distrib()
     else:
-        L = numo_samples
+        if npdfs==None: npdfs=1
+        total_pdf = dict()
+        for curr in range(npdfs):
 
-        for i in range(0, L):
-            if fun_obj.n_u>0: new_y = random.randint(0,fun_obj.n_u-1)
-            else:             new_y = None
-            if fun_obj.n_v>0: new_z = random.randint(0,fun_obj.n_v-1)
-            else:             new_z = None
-            if fun_obj.n_w>0: new_w = random.randint(0,fun_obj.n_w-1)
-            else:             new_w = None
-            x,y,z = fun_obj.fun(new_y,new_z,new_w)
-            x_list.append( x )
-            y_list.append( y )
-            z_list.append( z )
+            for i in range(0, numo_samples):
+                if fun_obj.n_u>0: new_y = random.randint(0,fun_obj.n_u-1)
+                else:             new_y = None
+                if fun_obj.n_v>0: new_z = random.randint(0,fun_obj.n_v-1)
+                else:             new_z = None
+                if fun_obj.n_w>0: new_w = random.randint(0,fun_obj.n_w-1)
+                else:             new_w = None
+                x,y,z = fun_obj.fun(new_y,new_z,new_w)
+                x_list.append( x )
+                y_list.append( y )
+                z_list.append( z )
 
-        # add noise
-        for i in range(0,L):
-            noise = 0
-            p = random.random();
-            if p<noise_level:
-                x_list[i] = fun_obj.noise( x_list[i] )
+            # add noise
+            for i in range(0,numo_samples):
+                noise = 0
+                p = random.random();
+                if p<noise_level:
+                    x_list[i] = fun_obj.noise( x_list[i] )
 
-        # update counts
-        for i in range(0,L):
-            if (x_list[i],y_list[i],z_list[i]) in counts.keys():   counts[(x_list[i],y_list[i],z_list[i])] += 1
-            else:                                                  counts[(x_list[i],y_list[i],z_list[i])] =  1
+            # update counts
+            for i in range(0,numo_samples):
+                if (x_list[i],y_list[i],z_list[i]) in counts.keys():   counts[(x_list[i],y_list[i],z_list[i])] += 1
+                else:                                                  counts[(x_list[i],y_list[i],z_list[i])] =  1
 
-        # make pdf from counts
-        pdf = dict()
-        for xyz,c in counts.items():  pdf[xyz] = c/float(L)
-        # Finished sampling creation of pdf
-    #END of creation of pdf
+            # make pdf from counts
+            this_pdf = dict()
+            for xyz,c in counts.items():  this_pdf[xyz] = c/float(numo_samples)
+            if npdfs > 1:
+                for xyz,c in counts.items():
+                    if xyz in total_pdf.keys():
+                        total_pdf[xyz] += c/float(numo_samples*npdfs)
+                    else:
+                        total_pdf[xyz] =  c/float(numo_samples*npdfs)
+            #end if npdfs
+
+            if filename != None and npdfs > 1:
+                the_filename = filename+"-"+str(curr)
+                with open(the_filename, 'w') as f:
+                    array = []
+                    for k,v in this_pdf.items():
+                        array.append(   [ to_list(k), v ]   )
+                    json.dump(array, f)
+                #end with
+            #end if file-curr
+        #end for curr
+
+    #end if true/sampled
 
     if filename != None:
         with open(filename, 'w') as f:
             array = []
-            for k,v in pdf.items():
+            for k,v in total_pdf.items():
                 array.append(   [ to_list(k), v ]   )
             json.dump(array, f)
         return 0
     else:
-        print("pdf=",TartuSynergy.sorted_pdf(pdf))
+        print("pdf=",TartuSynergy.sorted_pdf(total_pdf))
         print("test__solve_time_series(): L = ",numo_samples)
-        retval=TartuSynergy.solve_PDF( pdf, fun_obj.true_input_distrib(), fun_obj.true_result_distrib(), fun_obj.true_CI(), fun_obj.true_SI() , verbose=verbose)
+        retval=TartuSynergy.solve_PDF( total_pdf, fun_obj.true_input_distrib(), fun_obj.true_result_distrib(), fun_obj.true_CI(), fun_obj.true_SI() , verbose=verbose)
         optpdf,feas,kkt,CI,SI = retval
         print("CI:",CI,"  SI:",SI,"  sum of marginal eqns violations:",feas,"  maximal KKT-system constraint violation:",kkt)
         return retval
@@ -314,7 +334,7 @@ def test__solve_time_series(filename, fun_obj, noise_level,   numo_samples, verb
 
 def print_parameters_usage_msg():
     print("Usage:   time_series.py -h")
-    print("   or:   time_serie.py  [-v|w] fun noiselevel # ")
+    print("   or:   time_serie.py  [-v | -w n ] fun noiselevel # ")
     print("time_series.py -h    lists the functions.")
     print("Otherwise,")
     print("        fun          is a function;")
@@ -323,22 +343,31 @@ def print_parameters_usage_msg():
     print("Unless -w is given, the information decomposition is computed.")
     print("In that case:")
     print("        -v           sets verbose mode")
-    print("With -w, the probability density function is written to")
-    print("the file `fun-noiselevel-#.dens'")
+    print("With -w, n probability density functions (each with # samples)")
+    print("are written to the files ")
+    print("`fun-noiselevel-#.dens-k' for k=0,...,n-1.")
 
 def main(sys_argv):
     verbose_mode = False
     file_mode    = False
-    if len(sys_argv)==5:
-        if sys_argv[1]=='-v':
+    npdfs        = None
+    if len(sys_argv) in [5,6]:
+        if len(sys_argv)==5 and sys_argv[1]=='-v':
             verbose_mode = True
-        elif sys_argv[1]=='-w':
+            del sys_argv[1]
+        elif len(sys_argv)==6 and sys_argv[1]=='-w':
             file_mode = True
+            npdfs = int(sys_argv[2])
+            if npdfs<1 or npdfs>32767:
+                print("There's something wrong with the parameters!")
+                print_parameters_usage_msg()
+                return 1
+            del sys_argv[1]
+            del sys_argv[1]
         else:
             print("There's something wrong with the parameters!")
             print_parameters_usage_msg()
             return 1
-        del sys_argv[1]
 
     if len(sys_argv) <= 1:
         print_parameters_usage_msg()
@@ -389,7 +418,7 @@ def main(sys_argv):
                 filename = fun_S+"-"+str(noise_p)+"-"+str(numo_samples)+".dens"
             else:
                 filename = None
-            retval = test__solve_time_series(filename, fun_obj, noise_p, numo_samples, verbose=verbose_mode)
+            retval = test__solve_time_series(filename, npdfs, fun_obj, noise_p, numo_samples, verbose=verbose_mode)
             return retval
         else:
             return 1
