@@ -290,12 +290,11 @@ def test__solve_time_series(filename, npdfs, fun_obj, noise_level,   numo_sample
             # make pdf from counts
             this_pdf = dict()
             for xyz,c in counts.items():  this_pdf[xyz] = c/float(numo_samples)
-            if npdfs > 1:
-                for xyz,c in counts.items():
-                    if xyz in total_pdf.keys():
-                        total_pdf[xyz] += c/float(numo_samples*npdfs)
-                    else:
-                        total_pdf[xyz] =  c/float(numo_samples*npdfs)
+            for xyz,c in counts.items():
+                if xyz in total_pdf.keys():
+                    total_pdf[xyz] += c/float(numo_samples*npdfs)
+                else:
+                    total_pdf[xyz] =  c/float(numo_samples*npdfs)
             #end if npdfs
 
             if filename != None and npdfs > 1:
