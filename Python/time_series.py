@@ -251,16 +251,15 @@ def to_list(x):
     return [to_list(x[0])] + to_list(x[1:])
 
 def test__solve_time_series(filename, npdfs, fun_obj, noise_level,   numo_samples, verbose=False):
-    y_list=[]
-    z_list=[]
-    x_list=[]
-
     if numo_samples == 0:
         total_pdf = fun_obj.true_input_distrib()
     else:
         if npdfs==None: npdfs=1
         total_pdf = dict()
         for curr in range(npdfs):
+            y_list=[]
+            z_list=[]
+            x_list=[]
             counts = dict()
 
             for i in range(0, numo_samples):
