@@ -430,11 +430,11 @@ end # eval_hesslag()
 #     return nothing
 # end
 
-function Ent_x{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat
+function entropy_X{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat
     s::TFloat = TFloat(0.)
     for x = 1:e.n_x
         s  +=  (  ( e.marg_x[x] ≤ 0 )  ?   TFloat(0.)   :   -e.marg_x[x]*log(e.marg_x[x])  )
-                end
+    end
     return s
     ;
 end
@@ -574,9 +574,9 @@ end
 
 
 #-----------------------------------------------
-#Dual Feasibility and Complementary Slackness
+# Solution & Statistics
 #-----------------------------------------------
-type Feasibility_Stats
+type Solution_and_Stats
     var_num             :: Int64
     x_sz                :: Int64
     y_sz                :: Int64
@@ -596,10 +596,9 @@ type Feasibility_Stats
 end
 
 
-function check_feasibility(model, myeval) :: Feasibility_Stats
+function check_feasibility(model, myeval) :: Solution_and_Stats
 
-    
-    fstat  = Feasibility_Stats( 0,0,0,0, status(model) ,  0,0,0,0,0,0,0,0,0,0,0)
+    fstat  = Solution_and_Stats( 0,0,0,0, status(model) ,  0,0,0,0,0,0,0,0,0,0,0)
     fstat.x_sz = myeval.n_x
     fstat.y_sz = myeval.n_y
     fstat.z_sz = myeval.n_z
