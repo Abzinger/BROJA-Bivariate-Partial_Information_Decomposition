@@ -1,6 +1,5 @@
 # infdecomp.jl
 module InfDecomp
-export decomp
 
 using MathProgBase
 # http://mathprogbasejl.readthedocs.io/en/latest/nlp.html
