@@ -17,7 +17,7 @@ type My_Eval <: MathProgBase.AbstractNLPEvaluator
 
     eqidx   :: Dict{ Tuple{String,Int64,Int64},  Int64} # first idx is "xy" or "xz". Index of eqn in {1,...,m}
     mr_eq   :: Vector{ Tuple{String,Int64,Int64} }      # ("xy",x,y) / ("yz",y,z) of an eqn
-
+    prb_xyz :: Array{Float64,3}
     marg_xy :: Array{Float64,2}
     marg_xz :: Array{Float64,2}
     marg_x  :: Array{Float64,1}
@@ -37,6 +37,7 @@ function create_My_Eval(q::Array{Float64,3})
     const n_z::Int64 = size(q,3);
 
     # Create marginals
+    prb_xyz::Array{Float64,3} = zeros(n_x,n_y,n_z)
     marg_xy::Array{Float64,2} = zeros(n_x,n_y)
     marg_xz::Array{Float64,2} = zeros(n_x,n_z)
     marg_x::Array{Float64,1}  = zeros(n_x)
@@ -49,7 +50,6 @@ function create_My_Eval(q::Array{Float64,3})
             end
         end
     end
-
     # Find the variables
     varidx::Array{Int64,3}                   = zeros(Bool,size(q));
     xyz   ::Vector{Tuple{Int64,Int64,Int64}} = [ (0,0,0) for i in 1:n_x*n_y*n_z ]
@@ -61,6 +61,7 @@ function create_My_Eval(q::Array{Float64,3})
                     n += 1
                     varidx[x,y,z] = n
                     xyz[n]        = (x,y,z)
+                    prb_xyz[x,y,z]= q[x,y,z]
                 else
                     varidx[x,y,z] = 0
                 end#if
@@ -137,7 +138,7 @@ function create_My_Eval(q::Array{Float64,3})
     bigfloat_nbits :: Int64     = 256
 
 
-    return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, marg_xy,marg_xz,marg_x, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
+    return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, prb_xyz, marg_xy,marg_xz,marg_x, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
     ;
 end
 
@@ -429,6 +430,15 @@ end # eval_hesslag()
 #     return nothing
 # end
 
+function Ent_x{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat
+    s::TFloat = TFloat(0.)
+    for x = 1:e.n_x
+        s  +=  (  ( e.marg_x[x] ≤ 0 )  ?   TFloat(0.)   :   -e.marg_x[x]*log(e.marg_x[x])  )
+                end
+    return s
+    ;
+end
+
 # ----------------
 # U S I N G   I T
 # ----------------
@@ -562,6 +572,7 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
     ;
 end
 
+
 #-----------------------------------------------
 #Dual Feasibility and Complementary Slackness
 #-----------------------------------------------
@@ -579,13 +590,16 @@ type Feasibility_Stats
     mu_nonneg_viol      :: BigFloat
     complementarity_max :: BigFloat
     complementarity_sum :: BigFloat
+    entropy_X_q         :: BigFloat
+    MI_X_YZ_q           :: BigFloat
+    CI_pq               :: BigFloat
 end
 
 
 function check_feasibility(model, myeval) :: Feasibility_Stats
 
     
-    fstat  = Feasibility_Stats( 0,0,0,0, status(model) ,  0,0,0,0,0,0,0,0)
+    fstat  = Feasibility_Stats( 0,0,0,0, status(model) ,  0,0,0,0,0,0,0,0,0,0,0)
     fstat.x_sz = myeval.n_x
     fstat.y_sz = myeval.n_y
     fstat.z_sz = myeval.n_z
@@ -614,6 +628,25 @@ function check_feasibility(model, myeval) :: Feasibility_Stats
 
         fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
         fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
+        fstat.entropy_X_q = Ent_x(myeval,q,BigFloat(0))
+        fstat.MI_X_YZ_q   = fstat.entropy_X_q + fstat.obj_val
+        p = BigFloat[]
+        for x = 1:myeval.n_x
+            for y = 1:myeval.n_y
+                for z = 1:myeval.n_z
+                    if myeval.marg_xy[x,y] > 0  &&  myeval.marg_xz[x,z] > 0
+                        push!(p,myeval.prb_xyz[x,y,z])
+                    end
+                end# z
+            end# y
+        end# x
+        MI_X_YZ_p = Ent_x(myeval,p,BigFloat(0)) + eval_f(myeval,p,BigFloat(0))
+        fstat.CI_pq = MI_X_YZ_p - fstat.MI_X_YZ_q
+        hh = Ent_x(myeval,p,BigFloat(0))       
+        println("me : $hh")
+        println("me : $dd")
+        println("me q : $q")
+        println("me p : $p")
     end
     
     return fstat
