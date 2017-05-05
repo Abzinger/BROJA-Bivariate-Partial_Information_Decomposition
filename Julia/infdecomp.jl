@@ -590,9 +590,9 @@ type Solution_and_Stats
     mu_nonneg_viol      :: BigFloat
     complementarity_max :: BigFloat
     complementarity_sum :: BigFloat
-    entropy_X_q         :: BigFloat
     MI_X_YZ_q           :: BigFloat
     CI_pq               :: BigFloat
+    entropy_X           :: BigFloat
 end
 
 
@@ -627,7 +627,7 @@ function check_feasibility(model, myeval) :: Solution_and_Stats
 
         fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
         fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
-        fstat.entropy_X_q = Ent_x(myeval,q,BigFloat(0))
+        fstat.entropy_X   = Ent_x(myeval,q,BigFloat(0))
         fstat.MI_X_YZ_q   = fstat.entropy_X_q + fstat.obj_val
         p = BigFloat[]
         for x = 1:myeval.n_x
@@ -641,13 +641,14 @@ function check_feasibility(model, myeval) :: Solution_and_Stats
         end# x
         MI_X_YZ_p = Ent_x(myeval,p,BigFloat(0)) + eval_f(myeval,p,BigFloat(0))
         fstat.CI_pq = MI_X_YZ_p - fstat.MI_X_YZ_q
-        hh = Ent_x(myeval,p,BigFloat(0))       
+        hh = Ent_x(myeval,p,BigFloat(0))
+
         println("me : $hh")
         println("me : $dd")
         println("me q : $q")
         println("me p : $p")
     end
-    
+
     return fstat
     ;
 end
