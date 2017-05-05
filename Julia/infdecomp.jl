@@ -434,15 +434,8 @@ end # eval_hesslag()
 function Ent_x{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat
     s::TFloat = TFloat(0.)
     for x = 1:e.n_x
-        for y = 1:e.n_y
-            for z = 1:e.n_z
-                i = e.varidx[x,y,z]
-                if i>0
-                    s  +=  (  ( e.marg_x[x] ≤ 0 )  ?   TFloat(0.)   :   -e.marg_x[x]*log(e.marg_x[x])  )
+        s  +=  (  ( e.marg_x[x] ≤ 0 )  ?   TFloat(0.)   :   -e.marg_x[x]*log(e.marg_x[x])  )
                 end
-            end
-        end
-    end
     return s
     ;
 end
@@ -652,7 +645,7 @@ function check_feasibility(model, myeval) :: Feasibility_Stats
         fstat.CI_pq = MI_X_YZ_p - fstat.MI_X_YZ_q
         hh = Ent_x(myeval,p,BigFloat(0))       
         println("me : $hh")
-        println("me : $e.marg_x[x]")
+        println("me : $dd")
         println("me q : $q")
         println("me p : $p")
     end
