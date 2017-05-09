@@ -192,7 +192,7 @@ features_available(::My_Eval) = features_list
 # Properties:
 isobjlinear(::My_Eval)           = false
 isobjquadratic(::My_Eval)        = false
-isconstrlinear(::My_Eval, ::Any) = true
+#isconstrlinear(::My_Eval, ::Any) = true
 
 
 # ------------------------------------------
@@ -627,8 +627,8 @@ function check_feasibility(model, myeval) :: Solution_and_Stats
 
         fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
         fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
-        fstat.entropy_X   = Ent_x(myeval,q,BigFloat(0))
-        fstat.MI_X_YZ     = fstat.entropy_X_q + fstat.obj_val
+        fstat.entropy_X   = entropy_X(myeval,q,BigFloat(0))
+        fstat.MI_X_YZ     = fstat.entropy_X + fstat.obj_val
         p = BigFloat[]
         for x = 1:myeval.n_x
             for y = 1:myeval.n_y
@@ -639,14 +639,17 @@ function check_feasibility(model, myeval) :: Solution_and_Stats
                 end# z
             end# y
         end# x
-        MI_X_YZ_p = Ent_x(myeval,p,BigFloat(0)) + eval_f(myeval,p,BigFloat(0))
-        fstat.CI = MI_X_YZ_p - fstat.MI_X_YZ_q
-        hh = Ent_x(myeval,p,BigFloat(0))
-
-        println("me : $hh")
-        println("me : $dd")
-        println("me q : $q")
-        println("me p : $p")
+ 
+        fstat.CI = -(eval_f(myeval,p,BigFloat(0)) + fstat.obj_val)/log(2)
+        hh = fstat.MI_X_YZ
+        println(" MI :$hh")
+        dd = 0
+        dd = fstat.entropy_X
+        println(" ent :$dd")
+        ee = 0
+        ee = fstat.CI
+        println(" CI :$ee")
+        
     end
 
     return fstat
