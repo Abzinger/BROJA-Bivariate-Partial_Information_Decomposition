@@ -192,7 +192,7 @@ features_available(::My_Eval) = features_list
 # Properties:
 isobjlinear(::My_Eval)           = false
 isobjquadratic(::My_Eval)        = false
-#isconstrlinear(::My_Eval, ::Any) = true
+isconstrlinear(::My_Eval, ::Integer) = true
 
 
 # ------------------------------------------
