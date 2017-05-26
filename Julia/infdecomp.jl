@@ -21,6 +21,7 @@ type My_Eval <: MathProgBase.AbstractNLPEvaluator
     marg_xy :: Array{Float64,2}
     marg_xz :: Array{Float64,2}
     marg_x  :: Array{Float64,1}
+    marg_y  :: Array{Float64,1}
 
     rhs   :: Vector{Float64}                # m-vector
     Gt    :: SparseMatrixCSC{Float64,Int64} # G^T n x m; transpose of constraint matrix
@@ -37,16 +38,18 @@ function create_My_Eval(q::Array{Float64,3})
     const n_z::Int64 = size(q,3);
 
     # Create marginals
-    prb_xyz::Array{Float64,3} = zeros(n_x,n_y,n_z)
-    marg_xy::Array{Float64,2} = zeros(n_x,n_y)
-    marg_xz::Array{Float64,2} = zeros(n_x,n_z)
-    marg_x::Array{Float64,1}  = zeros(n_x)
+    prb_xyz::Array{Float64,3}  = zeros(n_x,n_y,n_z)
+    marg_xy::Array{Float64,2}  = zeros(n_x,n_y)
+    marg_xz::Array{Float64,2}  = zeros(n_x,n_z)
+    marg_x ::Array{Float64,1}  = zeros(n_x)
+    marg_y ::Array{Float64,1}  = zeros(n_y)
     for x in 1:n_x
         for y in 1:n_y
             for z in 1:n_z
                 marg_xy[x,y] += q[x,y,z]
                 marg_xz[x,z] += q[x,y,z]
                 marg_x[x]    += q[x,y,z]
+                marg_y[y]    += q[x,y,z]
             end
         end
     end
@@ -138,7 +141,7 @@ function create_My_Eval(q::Array{Float64,3})
     bigfloat_nbits :: Int64     = 256
 
 
-    return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, prb_xyz, marg_xy,marg_xz,marg_x, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
+    return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, prb_xyz, marg_xy,marg_xz,marg_x, marg_y, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
     ;
 end
 
@@ -171,6 +174,7 @@ import MathProgBase.getreducedcosts
 import MathProgBase.getconstrduals
 import MathProgBase.getsolution
 import MathProgBase.status
+import MathProgBase.getsolvetime
 
 # ------------
 # B a s i c s
@@ -385,7 +389,7 @@ function Hess{TFloat}(e::My_Eval, H::Vector{Float64}, p::Vector{Float64}, σ::Fl
                 if i>0
                     counter += 1
                     P_xyz = p[i]
-                    H[counter] = Float64(  TFloat(σ)*( P_yz - P_xyz )/(  P_yz * P_xyz )  )
+                    H[counter] = Float64(   (P_xyz == 0 ) ?  1.e50  : TFloat(σ)*( P_yz - P_xyz )/(  P_yz * P_xyz )  )
                 end
             end
             # Now off-diagonal.
@@ -430,14 +434,260 @@ end # eval_hesslag()
 #     return nothing
 # end
 
-function entropy_X{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat
-    s::TFloat = TFloat(0.)
-    for x = 1:e.n_x
-        s  +=  (  ( e.marg_x[x] ≤ 0 )  ?   TFloat(0.)   :   -e.marg_x[x]*log(e.marg_x[x])  )
+
+#------------------
+# M A R G I N A L S
+#------------------
+
+function marginal_X{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,1}
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)        
+        marg_x::Array{BigFloat,1}  = zeros(BigFloat,e.n_x)
+        setprecision(BigFloat,prc)
+    else
+        marg_x  = zeros(e.n_x)
+    end
+    for x in 1:e.n_x
+        for y in 1:e.n_y
+            for z in 1:e.n_z
+                i = e.varidx[x,y,z]
+                if i>0
+                    marg_x[x] += p[i]
+                end
+            end
+        end
+    end
+    return marg_x
+    ;
+end#^ marginal_X
+
+function marginal_Y{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,1}
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        marg_y::Array{BigFloat,1}  = zeros(BigFloat,e.n_y)
+        setprecision(BigFloat,prc)
+    end
+    for y in 1:e.n_y
+        for x in 1:e.n_x
+            for z in 1:e.n_z
+                i = e.varidx[x,y,z]
+                if i>0
+                    marg_y[y] += p[i]
+                end
+            end
+        end
+    end
+    return marg_y
+    ;
+end#^ marginal_Y
+
+function marginal_Z{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,1}
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        marg_z::Array{BigFloat,1}  = zeros(BigFloat,e.n_z)
+        setprecision(BigFloat,prc)
+    end
+    for z in 1:e.n_z
+        for x in 1:e.n_x
+            for y in 1:e.n_y
+                i = e.varidx[x,y,z]
+                if i>0
+                    marg_z[z] += p[i]
+                end
+            end
+        end
+    end
+    return marg_z
+    ;
+end#^ marginal_Z
+
+function marginal_XY{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,2}
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        marg_xy::Array{BigFloat,2}  = zeros(BigFloat,e.n_x,e.n_y)
+        setprecision(BigFloat,prc)
+    end
+    for x in 1:e.n_x
+        for y in 1:e.n_y
+            for z in 1:e.n_z
+                i = e.varidx[x,y,z]
+                if i>0
+                    marg_xy[x,y] += p[i]
+                end
+            end
+        end
+    end
+    return marg_xy
+    ;
+end#^ marginals_XY
+
+function marginal_XZ{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,2}
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        marg_xz::Array{BigFloat,2}  = zeros(BigFloat,e.n_x,e.n_z)
+        setprecision(BigFloat,prc)
+    end
+    for x in 1:e.n_x
+        for z in 1:e.n_z
+            for y in 1:e.n_y
+                i = e.varidx[x,y,z]
+                if i>0
+                    marg_xz[x,z] += p[i]
+                end
+            end
+        end
+    end
+    return marg_xz
+    ;
+end#^ marginal_XZ
+
+function marginal_YZ{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,2}
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        marg_yz::Array{BigFloat,2}  = zeros(BigFloat,e.n_y,e.n_z)
+        setprecision(BigFloat,prc)
+    end
+    for y in 1:e.n_y
+        for z in 1:e.n_z
+            for x in 1:e.n_x
+                i = e.varidx[x,y,z]
+                if i>0
+                    marg_yz[y,z] += p[i]
+                end
+            end
+        end
+    end
+    return marg_yz
+    ;
+end#^ marginal_YZ
+
+
+#------------------------------------------
+# I N F O R M A T I O N - F U N C T I O N S
+#------------------------------------------
+
+# entropy_X --- Shannon entropy of X --- H(X)
+
+function entropy_X{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        s::BigFloat = BigFloat(0.)
+        setprecision(BigFloat,prc)
+    else
+        s = Float64(0)
+    end
+    marg_x = marginal_X(e, p, TFloat)
+    for x in 1:e.n_x
+        s  +=  (  ( marg_[x] ≤ 0 )  ?   TFloat(0.)   :   marg_x[x]*log(marg_x[x])  )
     end
     return s
     ;
-end
+end#^ entropy_X
+
+
+# I_X_Y --- Mutual information of  X & Y --- I(X;Y)
+
+function I_X_Y{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        s::BigFloat = BigFloat(0.)
+        setprecision(BigFloat,prc)
+    else
+        s = Float64(0)
+    end
+    marg_x  = marginal_X(e, p, TFloat)
+    marg_y  = marginal_Y(e, p, TFloat)
+    marg_xy = marginal_XY(e, p, TFloat)
+    for x in 1:e.n_x
+        for y in 1:e.n_y
+            s  +=  (  (marg_xy[x,y]  ≤ 0 || marg_x[x] ≤ 0 || marg_y[y] ≤ 0)  ?   TFloat_2(0.)   :   marg_xy[x,y]*log( marg_xy[x,y] / (marg_y[y] * marg_x[x]) )  )
+        end
+    end# ^y
+    return s/log(2)
+    ;
+end#^ I_X_Y
+
+
+# I_X_Y__Z --- Mutual information of X & Y|Z --- I(X;Y|Z)
+    
+function I_X_Y__Z{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        s::BigFloat = BigFloat(0.)
+        setprecision(BigFloat,prc)
+    else
+        s = Float64(0)
+    end
+    marg_z  = marginal_Z(e, p, TFloat)
+    marg_xz = marginal_XZ(e, p, TFloat)
+    marg_yz = marginal_YZ(e, p, TFloat)
+    for x in 1:e.n_x
+        for y in 1:e.n_y
+            for z in 1:e.n_z
+                i = e.varidx[x,y,z]
+                if i>0
+                    s  +=  (  (marg_yz[y,z]  ≤ 0 || marg_z[z] ≤ 0 || marg_xz[x,z] ≤ 0 || p[i] ≤ 0 )  ?   TFloat_2(0.)   :   p[i]*log( (p[i] * marg_z[z]) / (marg_xz[x,z] * marg_yz[y,z]) )  )
+                end
+            end
+        end
+    end
+    return s/log(2)
+    ;
+end#^ I_X_Y__Z
+
+
+# I_X_Z__Y --- Mutual information of X & Z|Y --- I(X;Z|Y)
+
+function I_X_Z__Y{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        s::BigFloat = BigFloat(0.)
+        setprecision(BigFloat,prc)
+    else
+        s = Float64(0)
+    end
+    marg_y  = marginal_Y(e, p, TFloat)
+    marg_xy = marginal_XY(e, p, TFloat)
+    marg_yz = marginal_YZ(e, p, TFloat)
+    for x in 1:e.n_x
+        for y in 1:e.n_y
+            for z in 1:e.n_z
+                i = e.varidx[x,y,z]
+                if i>0
+                    s  +=  (  (marg_yz[y,z]  ≤ 0 || marg_y[y] ≤ 0 || marg_xy[x,y] ≤ 0 || p[i] ≤ 0 )  ?   TFloat_2(0.)   :   p[i]*log( (p[i] * marg_y[y]) / (marg_xy[x,y] * marg_yz[y,z]) )  )
+                end
+            end
+        end
+    end
+    return s/log(2)
+end#^ I_X_Y__Z
+
+
+# SI --- Shared Information of Y & Z --- SI(Y;Z) 
+
+function SI{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
+    if e.TmpFloat==BigFloat
+        prc = precision(BigFloat)
+        setprecision(BigFloat,e.bigfloat_nbits)
+        s::BigFloat = BigFloat(0.)
+        setprecision(BigFloat,prc)
+    else
+        s = Float64(0)
+    end
+    return I_X_Y(e, p, TFloat) - I_X_Y__Z(e, p, TFloat)
+    ;
+end#^ SI
+
 
 # ----------------
 # U S I N G   I T
@@ -590,21 +840,25 @@ type Solution_and_Stats
     mu_nonneg_viol      :: BigFloat
     complementarity_max :: BigFloat
     complementarity_sum :: BigFloat
-    MI_X_YZ             :: BigFloat
+    # MI_X_YZ             :: BigFloat
     CI                  :: BigFloat
-    entropy_X           :: BigFloat
+    SI                  :: BigFloat
+    UI_Y                :: BigFloat
+    UI_Z                :: BigFloat
+    opt_time            :: Float64
+    # entropy_X           :: BigFloat
 end
 
 
-function check_feasibility(model, myeval) :: Solution_and_Stats
+function check_feasibility(model, myeval, solver) :: Solution_and_Stats
 
-    fstat  = Solution_and_Stats( 0,0,0,0, status(model) ,  0,0,0,0,0,0,0,0,0,0,0)
+    fstat  = Solution_and_Stats( 0,0,0,0, status(model) ,  0,0,0,0,0,0,0,0,0,0,0,0,0)
     fstat.x_sz = myeval.n_x
     fstat.y_sz = myeval.n_y
     fstat.z_sz = myeval.n_z
     fstat.var_num = myeval.n
 
-    if status(model)==:Solve_Succeeded || status(model)==:Optimal || status(model)==:NearOptimal
+    if status(model)==:Solve_Succeeded || status(model)==:Optimal || status(model)==:NearOptimal || status(model)==:KnitroError || ( status(model)==:UserLimit && solver !=:Mosek ) || status(model)==:FeasibleApproximate 
         q = Vector{BigFloat}( getsolution(model) )
 
         fstat.obj_val = eval_f(myeval,q,BigFloat(0))
@@ -618,6 +872,7 @@ function check_feasibility(model, myeval) :: Solution_and_Stats
 
         grad = zeros(BigFloat, myeval.n)
         InfDecomp.∇f(myeval, grad, q, BigFloat(.0))
+        # println(grad)
 
         lambda = Vector{BigFloat}( getconstrduals(model) )
 
@@ -627,8 +882,8 @@ function check_feasibility(model, myeval) :: Solution_and_Stats
 
         fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
         fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
-        fstat.entropy_X   = entropy_X(myeval,q,BigFloat(0))
-        fstat.MI_X_YZ     = fstat.entropy_X + fstat.obj_val
+        # fstat.entropy_X   = entropy_X(myeval,q,BigFloat(0))
+        # fstat.MI_X_YZ     = fstat.entropy_X + fstat.obj_val
         p = BigFloat[]
         for x = 1:myeval.n_x
             for y = 1:myeval.n_y
@@ -641,17 +896,13 @@ function check_feasibility(model, myeval) :: Solution_and_Stats
         end# x
  
         fstat.CI = -(eval_f(myeval,p,BigFloat(0)) + fstat.obj_val)/log(2)
-        hh = fstat.MI_X_YZ
-        println(" MI :$hh")
-        dd = 0
-        dd = fstat.entropy_X
-        println(" ent :$dd")
-        ee = 0
-        ee = fstat.CI
-        println(" CI :$ee")
-        
+        fstat.SI = SI(myeval,q,BigFloat(0))
+        fstat.UI_Y = I_X_Y__Z(myeval,q,BigFloat(0))
+        fstat.UI_Z = I_X_Z__Y(myeval,q,BigFloat(0))
+    end#^ if status
+    if solver != :Ipopt
+        fstat.opt_time = getsolvetime(model)
     end
-
     return fstat
     ;
 end

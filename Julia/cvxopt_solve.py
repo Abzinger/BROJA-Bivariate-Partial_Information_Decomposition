@@ -1,7 +1,7 @@
 import numpy
 from cvxopt import solvers, matrix, spmatrix, spdiag, log
 class Cvxopt_Solve:
-    def __init__(self, marg_xy, marg_xz, _set_to_zero=set()):
+    def __init__(self, marg_xy, marg_xz, _time_l, _set_to_zero=set()):
         # marg_xy is a dictionary     (x,y) --> positive double
         # marg_xz is a dictionary     (x,z) --> positive double
 
@@ -24,6 +24,7 @@ class Cvxopt_Solve:
         self.solver_ret   = None
         self.p_final      = None
         self.set_to_zero  = _set_to_zero
+        self.time_l       = _time_l
 
         # Actual code:
         self.orig_marg_xy = dict(marg_xy)
@@ -224,7 +225,9 @@ class Cvxopt_Solve:
         self.create_equations()
         self.create_ieqs()
         self.make_initial_solution()
-
+        #solvers.options['tm_lim'] =  self.time_l
+        solvers.options['glpk'] = {'tm_lim' : self.time_l}
+        solvers.options['maxiters'] = 200
         self.solver_ret   = solvers.cp(self.callback, G=self.G, h=self.h, A=self.A, b=self.b)
         print("Solver terminated with status ",self.solver_ret['status'])
     #^ solve_it()
@@ -245,10 +248,10 @@ class Cvxopt_Solve:
             q[iter] = self.solver_ret['x'][i]
             iter += 1
         
-        # q_ = dict()
-        # for xyz,i in self.var_idx.items():
-        #     q_[xyz] = self.solver_ret['x'][i]
-        # self.p_final = q_
+        q_ = dict()
+        for xyz,i in self.var_idx.items():
+            q_[xyz] = self.solver_ret['x'][i]
+        self.p_final = q_
         q_list = []
         for i in self.var_idx.values():
             q_list.append(self.solver_ret['x'][i])
@@ -276,8 +279,9 @@ class Cvxopt_Solve:
         
         complementarity_max = max( numpy.multiply( numpy.absolute(mu), numpy.absolute(q) ) )
         complementarity_sum = sum( numpy.multiply( numpy.absolute(mu), numpy.absolute(q) ) )
+        
 
-        return  var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity[0], marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol[0], complementarity_max[0], complementarity_sum[0]
+        return var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity[0], marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol[0], complementarity_max[0], complementarity_sum[0]
     #^ check_feasibility()
     
     def do_it(self):
@@ -324,22 +328,110 @@ def marginal_yz(p):
         else:                       marg[(y,z)] =  r
     return marg
 
-def solve_PDF(pdf):
+def marginal_x(p):
+    marg  = dict()
+    for xyz,r in p.items():
+        x,y,z = xyz
+        if x in marg.keys():   marg[x] += r
+        else:                  marg[x] =  r
+    return marg
+
+def marginal_y(p):
+    marg  = dict()
+    for xyz,r in p.items():
+        x,y,z = xyz
+        if y in marg.keys():   marg[y] += r
+        else:                  marg[y] =  r
+    return marg
+
+def marginal_z(p):
+    marg  = dict()
+    for xyz,r in p.items():
+        x,y,z = xyz
+        if z in marg.keys():   marg[z] += r
+        else:                  marg[z] =  r
+    return marg
+
+#-------------
+# Inf Funcs
+#-------------
+
+def I_X_YZ(p):
+    # Mutual information I( X ; YZ )
+    p_x = marginal_x(p)
+    p_yz = marginal_yz(p)
+    mysum = 0
+    for xyz,t in p.items():
+        x,y,z = xyz
+        if t>0:  mysum += t * log( t / ( p_x[x]*p_yz[(y,z)] ) )
+    return mysum/log(2)
+#^ I_X_YZ()
+
+def I_X_Y(p):
+    # Mutual information I( X ; Y )
+    p_x  = marginal_x(p)
+    p_y  = marginal_y(p)
+    p_xy = marginal_xy(p)
+    mysum = 0
+    for xy,t in p_xy.items():
+        x,y = xy
+        if t>0:  mysum += t * log( t / ( p_x[x]*p_y[y] ) )
+    return mysum/log(2)
+#^ I_X_Y()
+
+def cond_I_X_Y__Z(p):
+    # Conditional mutual information I( X ; Y | Z )
+    p_z  = marginal_z(p)
+    p_xz = marginal_xz(p)
+    p_yz = marginal_yz(p)
+    mysum = 0
+    for xyz,t in p.items():
+        x,y,z = xyz
+        if t>0:  mysum += t * log( ( t * p_z[z] )/( p_xz[(x,z)]*p_yz[(y,z)] ) )
+    return mysum/log(2)
+#^ cond_I_X_Y__Z()
+
+def cond_I_X_Z__Y(p):
+    # Conditional mutual information I( X ; Y | Z )
+    p_y  = marginal_y(p)
+    p_xy = marginal_xy(p)
+    p_yz = marginal_yz(p)
+    mysum = 0
+    for xyz,t in p.items():
+        x,y,z = xyz
+        if t>0:  mysum += t * log( ( t * p_y[y] )/( p_xy[(x,y)]*p_yz[(y,z)] ) )
+    return mysum/log(2)
+#^ cond_I_X_Z__Y()
+
+# Synergistic Information
+def wriggle_CI(p,q):
+    return I_X_YZ(p) - I_X_YZ(q)
+#^ wriggle_CI()
+
+# Shared Information
+def wriggle_SI(q):
+    return I_X_Y(q) - cond_I_X_Y__Z(q)
+#^ wriggle_SI()
+
+def solve_PDF(pdf,time_l):
     p_xy = marginal_xy(pdf)
     p_xz = marginal_xz(pdf)
-    cvx = Cvxopt_Solve(p_xy,p_xz)
+    cvx = Cvxopt_Solve(p_xy,p_xz,time_l)
     var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum = cvx.do_it()
-    
-    return var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum
+    CI = wriggle_CI(pdf, cvx.p_final)
+    SI = wriggle_SI(cvx.p_final)
+    UI_Y = cond_I_X_Y__Z(cvx.p_final)
+    UI_Z = cond_I_X_Z__Y(cvx.p_final)
+    return var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z
 
 
 ###########
 # Test Run
 ###########
-#pdf = {(0,0,0):.5, (1,1,1):.5}
-#pdf = {((0,0),0,0):.25, ((0,1),0,1):.25, ((1,0),1,0):.25, ((1,1),1,1):.25}
-#pdf = {(0,0,0):.25,(1,0,1):.25,(1,1,0):.25,(0,1,1):.25}
-#pdf = {(0,0,0):.25, (0,0,1):.25, (0,1,0):.25, (1,1,1):.25}
+# pdf = {(0,0,0):.5, (1,1,1):.5}
+# pdf = {((0,0),0,0):.25, ((0,1),0,1):.25, ((1,0),1,0):.25, ((1,1),1,1):.25}
+# pdf = {(0,0,0):.25,(1,0,1):.25,(1,1,0):.25,(0,1,1):.25}
+# pdf = {(0,0,0):.25, (0,0,1):.25, (0,1,0):.25, (1,1,1):.25}
 # pdf = {
 #             ((0,0), (0,0), (0,0)): .125,
 #             ((1,0), (0,0), (1,0)): .125,
@@ -392,4 +484,4 @@ def solve_PDF(pdf):
 #             ((0,1), 1, 1): .25,
 #         }
 
-# solve_PDF(pdf)
+# solve_PDF(pdf, 1000000)
