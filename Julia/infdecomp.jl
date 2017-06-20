@@ -20,8 +20,12 @@ type My_Eval <: MathProgBase.AbstractNLPEvaluator
     prb_xyz :: Array{Float64,3}
     marg_xy :: Array{Float64,2}
     marg_xz :: Array{Float64,2}
-    marg_x  :: Array{Float64,1}
-    marg_y  :: Array{Float64,1}
+
+    count_eval_f      :: Int64
+    count_eval_grad_f :: Int64
+    count_eval_g      :: Int64
+    count_eval_jac_g  :: Int64
+    count_hesseval    :: Int64
 
     rhs   :: Vector{Float64}                # m-vector
     Gt    :: SparseMatrixCSC{Float64,Int64} # G^T n x m; transpose of constraint matrix
@@ -41,15 +45,17 @@ function create_My_Eval(q::Array{Float64,3})
     prb_xyz::Array{Float64,3}  = zeros(n_x,n_y,n_z)
     marg_xy::Array{Float64,2}  = zeros(n_x,n_y)
     marg_xz::Array{Float64,2}  = zeros(n_x,n_z)
-    marg_x ::Array{Float64,1}  = zeros(n_x)
-    marg_y ::Array{Float64,1}  = zeros(n_y)
+
+    count_eval_f      :: Int64 = 0
+    count_eval_grad_f :: Int64 = 0
+    count_eval_g      :: Int64 = 0
+    count_eval_jac_g  :: Int64 = 0
+    count_hesseval    :: Int64 = 0
     for x in 1:n_x
         for y in 1:n_y
             for z in 1:n_z
                 marg_xy[x,y] += q[x,y,z]
                 marg_xz[x,z] += q[x,y,z]
-                marg_x[x]    += q[x,y,z]
-                marg_y[y]    += q[x,y,z]
             end
         end
     end
@@ -141,7 +147,7 @@ function create_My_Eval(q::Array{Float64,3})
     bigfloat_nbits :: Int64     = 256
 
 
-    return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, prb_xyz, marg_xy,marg_xz,marg_x, marg_y, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
+    return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, prb_xyz, marg_xy,marg_xz, count_eval_f, count_eval_grad_f, count_eval_g, count_eval_jac_g, count_hesseval, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
     ;
 end
 
@@ -182,6 +188,7 @@ import MathProgBase.getsolvetime
 
 # initialize()
 function initialize(e::My_Eval, requested_features::Vector{Symbol})
+    println("here!")
     for feat in requested_features
         if feat ∉ features_list
             error("infdecomp.jl: initialize():\n-   JuliaOpt:MathProgBase is asking for a feature ($feat) that I don't have.-   Maybe use another solver?")
@@ -198,7 +205,7 @@ isobjlinear(::My_Eval)           = false
 isobjquadratic(::My_Eval)        = false
 isconstrlinear(::My_Eval, ::Integer) = true
 
-
+#global count_hesseval = 0
 # ------------------------------------------
 # E v a l u a t i o n :   0 t h   o r d e r
 # ------------------------------------------
@@ -237,7 +244,7 @@ function eval_f{TFloat_2,TFloat}(e::My_Eval, x::Vector{TFloat_2},dummy::TFloat=F
     else
         condent = condEntropy(e,x,Float64())
     end
-
+    e.count_eval_f += 1
     return -condent
     ;
 end
@@ -245,6 +252,7 @@ end
 # eval_g --- eval of constraint into g
 function eval_g(e::My_Eval, g::Vector{Float64}, x::Vector{Float64})  :: Void
     g .= reshape( reshape(x,1,e.n)*e.Gt , e.m, ) .- e.rhs
+    e.count_eval_g += 1
     return nothing
     ;
 end # eval_g()
@@ -288,6 +296,9 @@ function eval_grad_f(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}) :: Void
     else
         ∇f(e,g,x,Float64())
     end
+    e.count_eval_grad_f += 1
+    # Useful when Mosek status is unknown
+    global ill_sol = x
     return nothing
     ;
 end # eval_grad_f()
@@ -301,6 +312,7 @@ jac_structure(e::My_Eval) :: Tuple{Vector{Int64},Vector{Int64}}   =  ( e.Gt_L , 
 # eval_jac_g() --- constraint Jacobian   -> J
 function eval_jac_g(e::My_Eval, J::Vector{Float64}, x::Vector{Float64}) :: Void
     J .= e.Gt.nzval
+    e.count_eval_jac_g += 1
     return nothing
     ;
 end # eval_jac_g()
@@ -420,8 +432,10 @@ function eval_hesslag(e::My_Eval, H::Vector{Float64}, x::Vector{Float64}, σ::Fl
         setprecision(BigFloat,e.bigfloat_nbits)
         Hess(e,H,x,σ,BigFloat())
         setprecision(BigFloat,prc)
+        e.count_hesseval += 1
     else
         Hess(e,H,x,σ,Float64())
+        e.count_hesseval += 1
     end
     return nothing
     ;
@@ -755,7 +769,7 @@ function create_Set_Data{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}) :: Set_Da
 end
 
 
-function create_stuff{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType=BigFloat) :: Tuple{ Set_Data{T1,T2,T3}, My_Eval }
+function create_stuff{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType=Float64) :: Tuple{ Set_Data{T1,T2,T3}, My_Eval }
     sd = create_Set_Data(pdf)
 
     Q = zeros(Float64,length(sd.X),length(sd.Y),length(sd.Z))
@@ -772,7 +786,8 @@ end #^ create_stuff
 using Base.Test
 
 
-function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::DataType=BigFloat, warmstart::Bool=false)
+function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::DataType=Float64, warmstart::Bool=false)
+    # global count_hesseval = 0
     const model = MathProgBase.NonlinearModel(solver)
     const sd,myeval = create_stuff(pdf)
     const lb = constraints_lowerbounds_vec(myeval)
@@ -788,7 +803,32 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
 
     MathProgBase.optimize!(model)
     stat = MathProgBase.status(model)
-
+    # q = Vector{Float64}( ill_sol )
+    # # Check the Reason for Ill_Sol
+    # valid = sum(q)
+    # max = maximum(q)
+    # println("dist ok!, ", valid)
+    # for y = 1:myeval.n_y
+    #     for z = 1:myeval.n_z
+    #         P_yz::tmpFloat = 0
+    #         ratio::tmpFloat = 0
+    #         i = 0
+    #         for x = 1:myeval.n_x
+    #             i = myeval.varidx[x,y,z]
+    #             if i>0
+    #                 P_yz += q[i]
+    #                 ratio = P_yz/q[i]
+    #                 #               if ( q[i] == sol_boundary && ratio > 1.e10)
+    #                 if (ratio > 1.e8)
+    #                     println("boundary point found!")
+    #                     println("prob =", q[i])
+    #                     println("margprob =", P_yz)
+    #                     println("scale = ", 1/(max*ratio))
+    #                 end
+    #             end
+    #         end
+    #     end# ^z
+    # end# ^y
     return sd,myeval,model;
 
     # println("Status is: ", stat)
@@ -845,64 +885,77 @@ type Solution_and_Stats
     SI                  :: BigFloat
     UI_Y                :: BigFloat
     UI_Z                :: BigFloat
-    opt_time            :: Float64
+    num_eval_f          :: Int64
+    num_eval_grad_f     :: Int64
+    num_eval_g          :: Int64
+    num_eval_jac_g      :: Int64
+    num_hessevals       :: Int64
+    opt_time            :: BigFloat
     # entropy_X           :: BigFloat
 end
 
 
 function check_feasibility(model, myeval, solver) :: Solution_and_Stats
 
-    fstat  = Solution_and_Stats( 0,0,0,0, status(model) ,  0,0,0,0,0,0,0,0,0,0,0,0,0)
+    fstat  = Solution_and_Stats( 0,0,0,0, status(model) ,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
     fstat.x_sz = myeval.n_x
     fstat.y_sz = myeval.n_y
     fstat.z_sz = myeval.n_z
     fstat.var_num = myeval.n
-
     if status(model)==:Solve_Succeeded || status(model)==:Optimal || status(model)==:NearOptimal || status(model)==:KnitroError || ( status(model)==:UserLimit && solver !=:Mosek ) || status(model)==:FeasibleApproximate 
-        q = Vector{BigFloat}( getsolution(model) )
-
-        fstat.obj_val = eval_f(myeval,q,BigFloat(0))
-
-        fstat.q_nonnegativity = -minimum(q)
-
-        equation = (q'*myeval.Gt)' - myeval.rhs
-        fstat.marginals_1   = norm(equation,1)
-        fstat.marginals_2   = norm(equation,2)
-        fstat.marginals_Inf = norm(equation,Inf)
-
-        grad = zeros(BigFloat, myeval.n)
-        InfDecomp.∇f(myeval, grad, q, BigFloat(.0))
-        # println(grad)
-
-        lambda = Vector{BigFloat}( getconstrduals(model) )
-
+        q = Vector{Float64}( getsolution(model) )
+        grad = zeros(Float64, myeval.n)
+        InfDecomp.∇f(myeval, grad, q, Float64(.0))
+        
+        lambda = Vector{Float64}( getconstrduals(model) )
+        
         mu = grad - myeval.Gt*lambda
 
         fstat.mu_nonneg_viol = -minimum(mu)
-
+        
         fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
         fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
-        # fstat.entropy_X   = entropy_X(myeval,q,BigFloat(0))
-        # fstat.MI_X_YZ     = fstat.entropy_X + fstat.obj_val
-        p = BigFloat[]
-        for x = 1:myeval.n_x
-            for y = 1:myeval.n_y
-                for z = 1:myeval.n_z
-                    if myeval.marg_xy[x,y] > 0  &&  myeval.marg_xz[x,z] > 0
-                        push!(p,myeval.prb_xyz[x,y,z])
-                    end
-                end# z
-            end# y
-        end# x
- 
-        fstat.CI = -(eval_f(myeval,p,BigFloat(0)) + fstat.obj_val)/log(2)
-        fstat.SI = SI(myeval,q,BigFloat(0))
-        fstat.UI_Y = I_X_Y__Z(myeval,q,BigFloat(0))
-        fstat.UI_Z = I_X_Z__Y(myeval,q,BigFloat(0))
-    end#^ if status
+    else
+        q = Vector{Float64}( ill_sol )
+        fstat.mu_nonneg_viol = -10
+        fstat.complementarity_max = -10
+        fstat.complementarity_sum = -10
+    end# ^if status
+    
+    fstat.obj_val = eval_f(myeval,q,Float64(0))
+
+    fstat.q_nonnegativity = -minimum(q)
+
+    equation = (q'*myeval.Gt)' - myeval.rhs
+    fstat.marginals_1   = norm(equation,1)
+    fstat.marginals_2   = norm(equation,2)
+    fstat.marginals_Inf = norm(equation,Inf)
+    # fstat.entropy_X   = entropy_X(myeval,q,Float64(0))
+    # fstat.MI_X_YZ     = fstat.entropy_X + fstat.obj_val
+    p = Float64[]
+    for x = 1:myeval.n_x
+        for y = 1:myeval.n_y
+            for z = 1:myeval.n_z
+                if myeval.marg_xy[x,y] > 0  &&  myeval.marg_xz[x,z] > 0
+                    push!(p,myeval.prb_xyz[x,y,z])
+                end
+            end# z
+        end# y
+    end# x
+    
+    fstat.CI = -(eval_f(myeval,p,Float64(0)) + fstat.obj_val)/log(2)
+    fstat.SI = SI(myeval,q,Float64(0))
+    fstat.UI_Y = I_X_Y__Z(myeval,q,Float64(0))
+    fstat.UI_Z = I_X_Z__Y(myeval,q,Float64(0))
+    fstat.num_eval_f        = myeval.count_eval_f
+    fstat.num_eval_grad_f   = myeval.count_eval_grad_f
+    fstat.num_eval_g        = myeval.count_eval_g
+    fstat.num_eval_jac_g    = myeval.count_eval_jac_g
+    fstat.num_hessevals = myeval.count_hesseval
     if solver != :Ipopt
         fstat.opt_time = getsolvetime(model)
     end
+  #  end #^if status
     return fstat
     ;
 end
