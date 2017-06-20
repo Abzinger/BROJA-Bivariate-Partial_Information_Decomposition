@@ -149,7 +149,7 @@ function create_My_Eval(q::Array{Float64,3}, tmpFloat::DataType, bigfloat_precis
 
     return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, prb_xyz, marg_xy,marg_xz, count_eval_f, count_eval_grad_f, count_eval_g, count_eval_jac_g, count_hesseval, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
     ;
-end # create_My_eval()
+end #^ create_My_eval()
 
 
 features_list  = [:Grad,:Jac,:JacVec,:Hess]::Vector{Symbol} # not doing :HessVec right now
@@ -766,7 +766,7 @@ function create_Set_Data{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}) :: Set_Da
 
     return Set_Data{T1,T2,T3}(Xidx,Yidx,Zidx,X,Y,Z)
     ;
-end
+end #^ create_Set_Data()
 
 
 function create_stuff{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType) :: Tuple{ Set_Data{T1,T2,T3}, My_Eval }
@@ -860,7 +860,7 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
 #    stat = MathProgBase.status(m)
 #    @test stat == :Optimal
     ;
-end
+end #^ do_it()
 
 
 #-----------------------------------------------
@@ -892,7 +892,7 @@ type Solution_and_Stats
     num_hessevals       :: Int64
     opt_time            :: BigFloat
     # entropy_X           :: BigFloat
-end
+end #^ type Solution_and_Stats
 
 
 function check_feasibility(model, myeval, solver) :: Solution_and_Stats
@@ -906,13 +906,13 @@ function check_feasibility(model, myeval, solver) :: Solution_and_Stats
         q = Vector{Float64}( getsolution(model) )
         grad = zeros(Float64, myeval.n)
         InfDecomp.∇f(myeval, grad, q, Float64(.0))
-        
+
         lambda = Vector{Float64}( getconstrduals(model) )
-        
+
         mu = grad - myeval.Gt*lambda
 
         fstat.mu_nonneg_viol = -minimum(mu)
-        
+
         fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
         fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
     else
@@ -921,7 +921,7 @@ function check_feasibility(model, myeval, solver) :: Solution_and_Stats
         fstat.complementarity_max = -10
         fstat.complementarity_sum = -10
     end# ^if status
-    
+
     fstat.obj_val = eval_f(myeval,q,Float64(0))
 
     fstat.q_nonnegativity = -minimum(q)
@@ -942,7 +942,7 @@ function check_feasibility(model, myeval, solver) :: Solution_and_Stats
             end# z
         end# y
     end# x
-    
+
     fstat.CI = -(eval_f(myeval,p,Float64(0)) + fstat.obj_val)/log(2)
     fstat.SI = SI(myeval,q,Float64(0))
     fstat.UI_Y = I_X_Y__Z(myeval,q,Float64(0))
@@ -958,8 +958,8 @@ function check_feasibility(model, myeval, solver) :: Solution_and_Stats
   #  end #^if status
     return fstat
     ;
-end
+end #^ check_feasibility()
 
-end # module
+end #^ module
 
 ; # EOF
