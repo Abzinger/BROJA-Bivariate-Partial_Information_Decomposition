@@ -36,7 +36,7 @@ type My_Eval <: MathProgBase.AbstractNLPEvaluator
     bigfloat_nbits :: Int64
 end
 
-function create_My_Eval(q::Array{Float64,3})
+function create_My_Eval(q::Array{Float64,3}, tmpFloat::DataType, bigfloat_precision=256)
     const n_x::Int64 = size(q,1);
     const n_y::Int64 = size(q,2);
     const n_z::Int64 = size(q,3);
@@ -143,13 +143,13 @@ function create_My_Eval(q::Array{Float64,3})
     local Gt_L::Array{Int64,1}
     (Gt_K,Gt_L) = findn(Gt)
 
-    TmpFloat       :: DataType  = BigFloat
-    bigfloat_nbits :: Int64     = 256
+    TmpFloat       :: DataType  = tmpFloat
+    bigfloat_nbits :: Int64     = bigfloat_precision
 
 
     return My_Eval(n_x,n_y,n_z, n,m, varidx,xyz, eqidx,mr_eq, prb_xyz, marg_xy,marg_xz, count_eval_f, count_eval_grad_f, count_eval_g, count_eval_jac_g, count_hesseval, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
     ;
-end
+end # create_My_eval()
 
 
 features_list  = [:Grad,:Jac,:JacVec,:Hess]::Vector{Symbol} # not doing :HessVec right now
@@ -769,7 +769,7 @@ function create_Set_Data{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}) :: Set_Da
 end
 
 
-function create_stuff{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType=Float64) :: Tuple{ Set_Data{T1,T2,T3}, My_Eval }
+function create_stuff{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::DataType) :: Tuple{ Set_Data{T1,T2,T3}, My_Eval }
     sd = create_Set_Data(pdf)
 
     Q = zeros(Float64,length(sd.X),length(sd.Y),length(sd.Z))
@@ -777,7 +777,7 @@ function create_stuff{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, tmpFloat::Da
         Q[ sd.Xidx[xyz[1]], sd.Yidx[xyz[2]], sd.Zidx[xyz[3]] ] = val
     end
 
-    e = create_My_Eval(Q)
+    e = create_My_Eval(Q,tmpFloat)
 
     return (sd,e)
     ;
@@ -786,10 +786,10 @@ end #^ create_stuff
 using Base.Test
 
 
-function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::DataType=Float64, warmstart::Bool=false)
+function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::DataType=BigFloat, warmstart::Bool=false)
     # global count_hesseval = 0
     const model = MathProgBase.NonlinearModel(solver)
-    const sd,myeval = create_stuff(pdf)
+    const sd,myeval = create_stuff(pdf,tmpFloat)
     const lb = constraints_lowerbounds_vec(myeval)
     const ub = constraints_upperbounds_vec(myeval)
     const l = vars_lowerbounds_vec(myeval)
