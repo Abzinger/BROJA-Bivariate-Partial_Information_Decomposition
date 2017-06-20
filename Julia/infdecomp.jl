@@ -211,10 +211,10 @@ isconstrlinear(::My_Eval, ::Integer) = true
 # ------------------------------------------
 function condEntropy{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat
     # m_yz = marg_yz(e,p,dummy)
-    s::TFloat = TFloat(0.)
+    s::TFloat = TFloat(0)
     for y = 1:e.n_y
         for z = 1:e.n_z
-            P_yz = TFloat(0.)
+            P_yz = TFloat(0)
             for x = 1:e.n_x
                 i = e.varidx[x,y,z]
                 if i>0
@@ -225,7 +225,7 @@ function condEntropy{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TF
                 i = e.varidx[x,y,z]
                 if i>0
                     p_xyz = p[i]
-                    s  +=  (  (p_xyz ≤ 0 || P_yz  ≤ 0)  ?   TFloat(0.)   :   - p_xyz*log( p_xyz / P_yz )   )
+                    s  +=  (  (p_xyz ≤ 0 || P_yz  ≤ 0)  ?   TFloat(0)   :   - p_xyz*log( p_xyz / P_yz )   )
                 end
             end
         end
@@ -239,15 +239,15 @@ function eval_f{TFloat_2,TFloat}(e::My_Eval, x::Vector{TFloat_2},dummy::TFloat=F
     if e.TmpFloat==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
-        condent = condEntropy(e,x,BigFloat())
+        condent = condEntropy(e,x,BigFloat(0))
         setprecision(BigFloat,prc)
     else
-        condent = condEntropy(e,x,Float64())
+        condent = condEntropy(e,x,Float64(0))
     end
     e.count_eval_f += 1
     return -condent
     ;
-end
+end #^ eval_f()
 
 # eval_g --- eval of constraint into g
 function eval_g(e::My_Eval, g::Vector{Float64}, x::Vector{Float64})  :: Void
@@ -286,19 +286,21 @@ function ∇f{TFloat,TFloat_2}(e::My_Eval, grad::Vector{TFloat_2}, p::Vector{TFl
     ;
 end # ∇f()
 
+# G L O B A L   V A R I A B L E
+ill_sol = nothing
 # eval_grad_f --- eval gradient of objective function
 function eval_grad_f(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}) :: Void
     if e.TmpFloat==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
-        ∇f(e,g,x,BigFloat())
+        ∇f(e,g,x,BigFloat(0))
         setprecision(BigFloat,prc)
     else
-        ∇f(e,g,x,Float64())
+        ∇f(e,g,x,Float64(0))
     end
     e.count_eval_grad_f += 1
     # Useful when Mosek status is unknown
-    global ill_sol = x
+    global ill_sol = x      # B U G           <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     return nothing
     ;
 end # eval_grad_f()
@@ -430,11 +432,11 @@ function eval_hesslag(e::My_Eval, H::Vector{Float64}, x::Vector{Float64}, σ::Fl
     if e.TmpFloat==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
-        Hess(e,H,x,σ,BigFloat())
+        Hess(e,H,x,σ,BigFloat(0))
         setprecision(BigFloat,prc)
         e.count_hesseval += 1
     else
-        Hess(e,H,x,σ,Float64())
+        Hess(e,H,x,σ,Float64(0))
         e.count_hesseval += 1
     end
     return nothing
@@ -454,13 +456,13 @@ end # eval_hesslag()
 #------------------
 
 function marginal_X{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,1}
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)        
-        marg_x::Array{BigFloat,1}  = zeros(BigFloat,e.n_x)
+    end
+    marg_x::Array{TFloat_2,1}  = zeros(TFloat_2,e.n_x)
+    if TFloat_2==BigFloat
         setprecision(BigFloat,prc)
-    else
-        marg_x  = zeros(e.n_x)
     end
     for x in 1:e.n_x
         for y in 1:e.n_y
@@ -477,10 +479,12 @@ function marginal_X{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFl
 end#^ marginal_X
 
 function marginal_Y{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,1}
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
-        marg_y::Array{BigFloat,1}  = zeros(BigFloat,e.n_y)
+    end
+    marg_y::Array{TFloat_2,1}  = zeros(TFloat_2,e.n_y)
+    if TFloat_2==BigFloat
         setprecision(BigFloat,prc)
     end
     for y in 1:e.n_y
@@ -498,10 +502,12 @@ function marginal_Y{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFl
 end#^ marginal_Y
 
 function marginal_Z{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,1}
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
-        marg_z::Array{BigFloat,1}  = zeros(BigFloat,e.n_z)
+    end
+    marg_z::Array{TFloat_2,1}  = zeros(TFloat_2,e.n_z)
+    if TFloat_2==BigFloat
         setprecision(BigFloat,prc)
     end
     for z in 1:e.n_z
@@ -519,10 +525,13 @@ function marginal_Z{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFl
 end#^ marginal_Z
 
 function marginal_XY{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,2}
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
-        marg_xy::Array{BigFloat,2}  = zeros(BigFloat,e.n_x,e.n_y)
+        setprecision(BigFloat,prc)
+    end
+    marg_xy::Array{TFloat_2,2}  = zeros(TFloat_2,e.n_x,e.n_y)
+    if TFloat_2==BigFloat
         setprecision(BigFloat,prc)
     end
     for x in 1:e.n_x
@@ -540,10 +549,12 @@ function marginal_XY{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TF
 end#^ marginals_XY
 
 function marginal_XZ{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,2}
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
-        marg_xz::Array{BigFloat,2}  = zeros(BigFloat,e.n_x,e.n_z)
+    end
+    marg_xz::Array{TFloat_2,2}  = zeros(TFloat_2,e.n_x,e.n_z)
+    if TFloat_2==BigFloat
         setprecision(BigFloat,prc)
     end
     for x in 1:e.n_x
@@ -561,10 +572,12 @@ function marginal_XZ{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TF
 end#^ marginal_XZ
 
 function marginal_YZ{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,2}
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
-        marg_yz::Array{BigFloat,2}  = zeros(BigFloat,e.n_y,e.n_z)
+    end
+    marg_yz::Array{TFloat_2,2}  = zeros(TFloat_2,e.n_y,e.n_z)
+    if TFloat_2==BigFloat
         setprecision(BigFloat,prc)
     end
     for y in 1:e.n_y
@@ -589,7 +602,7 @@ end#^ marginal_YZ
 # entropy_X --- Shannon entropy of X --- H(X)
 
 function entropy_X{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         s::BigFloat = BigFloat(0.)
@@ -609,7 +622,7 @@ end#^ entropy_X
 # I_X_Y --- Mutual information of  X & Y --- I(X;Y)
 
 function I_X_Y{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         s::BigFloat = BigFloat(0.)
@@ -633,7 +646,7 @@ end#^ I_X_Y
 # I_X_Y__Z --- Mutual information of X & Y|Z --- I(X;Y|Z)
     
 function I_X_Y__Z{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         s::BigFloat = BigFloat(0.)
@@ -662,7 +675,7 @@ end#^ I_X_Y__Z
 # I_X_Z__Y --- Mutual information of X & Z|Y --- I(X;Z|Y)
 
 function I_X_Z__Y{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         s::BigFloat = BigFloat(0.)
@@ -690,7 +703,7 @@ end#^ I_X_Y__Z
 # SI --- Shared Information of Y & Z --- SI(Y;Z) 
 
 function SI{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
-    if e.TmpFloat==BigFloat
+    if TFloat_2==BigFloat
         prc = precision(BigFloat)
         setprecision(BigFloat,e.bigfloat_nbits)
         s::BigFloat = BigFloat(0.)
