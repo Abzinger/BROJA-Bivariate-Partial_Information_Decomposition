@@ -100,7 +100,7 @@ function test(solver::Symbol,w1::String, w2::String)
         end
         feasstats = InfDecomp.check_feasibility(model,myeval,solver)
         s = tot_var(p,true_p)
-        open("feas_stats_5.csv", "a") do ffile
+        open("feas_stats_64.csv", "a") do ffile
             print(ffile,"# filename, Solver")
             for i in fieldnames(feasstats)
                 print(ffile,",\t",i)
@@ -127,12 +127,12 @@ function test(solver::Symbol,w1::String, w2::String)
     else
         println("Start optimization with Cvxopt...")
         pdf = PyDict(p)
-        fstat  = Solution_and_Stats( 0,0,0,0," ",  0,0,0,0,0,0,0,0,0," ")
+        fstat  = Solution_and_Stats( 0,0,0,0," ",  0,0,0,0,0,0,0,0,0,0,0,0," ")
         fstat.var_num, fstat.x_sz, fstat.y_sz, fstat.z_sz, fstat.status, fstat.obj_val, fstat.q_nonnegativity, fstat.marginals_1, fstat.marginals_2, fstat.marginals_Inf, fstat.mu_nonneg_viol, fstat.complementarity_max, fstat.complementarity_sum, fstat.CI, fstat.SI, fstat.UI_Y, fstat.UI_Z = cvxopt_solve.solve_PDF(p,time_l*1000)
         fstat.opt_time = "NOT AVAILABLE"
 
         s = tot_var(p,true_p)
-        open("feas_stats_5.csv", "a") do ffile
+        open("feas_stats_64_gu_9.csv", "a") do ffile
             print(ffile,"# filename, Solver")
             for i in fieldnames(fstat)
                 print(ffile,",\t",i)
