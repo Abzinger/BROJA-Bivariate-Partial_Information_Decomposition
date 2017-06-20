@@ -2,7 +2,7 @@ include("infdecomp.jl")
 include("read_pdf.jl")
 using InfDecomp
 using Read_PDF
-using MathProgBase 
+using MathProgBase
 using Mosek
 using Ipopt
 using NLopt
@@ -75,28 +75,31 @@ function test(solver::Symbol,w1::String, w2::String)
     p = read_p(w1)
     true_p = read_p(w2)
     time_l = 10000.0
+
+    tmpFloatDatatype = Float64
+
     if (solver != :Cvxopt)
         if (solver == :Mosek)
             println("Start optimization with Mosek...")
-	    sd,myeval,model = InfDecomp.do_it(p, Mosek.MosekSolver(MSK_IPAR_INTPNT_MULTI_THREAD=0, MSK_IPAR_INTPNT_MAX_ITERATIONS=500, MSK_DPAR_OPTIMIZER_MAX_TIME=time_l))
+	    sd,myeval,model = InfDecomp.do_it(p, Mosek.MosekSolver(MSK_IPAR_INTPNT_MULTI_THREAD=0, MSK_IPAR_INTPNT_MAX_ITERATIONS=500, MSK_DPAR_OPTIMIZER_MAX_TIME=time_l),tmpFloatDatatype)
         elseif (solver == :Ipopt)
             println("Start optimization with Ipopt...")
-	    sd,myeval,model = InfDecomp.do_it(p,Ipopt.IpoptSolver(max_cpu_time=time_l))
+	    sd,myeval,model = InfDecomp.do_it(p,Ipopt.IpoptSolver(max_cpu_time=time_l),tmpFloatDatatype)
             # elseif (solver == :NLopt_LD_SLSQP)
             #     println("Start optimization with NLopt/LD_SLSQP...")
             #     sd,myeval,model = InfDecomp.do_it(p,NLopt.NLoptSolver(algorithm=:LD_SLSQP))
         elseif (solver == :Knitro_Ip)
             println("Start optimization with Knitro/Interior_pt...")
-	    sd,myeval,model = InfDecomp.do_it(p,KNITRO.KnitroSolver(algorithm=1,maxtime_cpu=time_l))
+	    sd,myeval,model = InfDecomp.do_it(p,KNITRO.KnitroSolver(algorithm=1,maxtime_cpu=time_l),tmpFloatDatatype)
         elseif (solver == :Knitro_IpCG)
             println("Start optimization with Knitro/Interior_pt_CG...")
-	    sd,myeval,model = InfDecomp.do_it(p,KNITRO.KnitroSolver(algorithm=2,maxtime_cpu=time_l))
+	    sd,myeval,model = InfDecomp.do_it(p,KNITRO.KnitroSolver(algorithm=2,maxtime_cpu=time_l),tmpFloatDatatype)
         elseif (solver == :Knitro_AS)
             println("Start optimization with Knitro/Active_Set...")
-	    sd,myeval,model = InfDecomp.do_it(p,KNITRO.KnitroSolver(algorithm=3,maxtime_cpu=time_l))
+	    sd,myeval,model = InfDecomp.do_it(p,KNITRO.KnitroSolver(algorithm=3,maxtime_cpu=time_l),tmpFloatDatatype)
         elseif (solver == :Knitro_SQP)
             println("Start optimization with Knitro/SQP...")
-	    sd,myeval,model = InfDecomp.do_it(p,KNITRO.KnitroSolver(algorithm=4,maxtime_cpu=time_l))
+	    sd,myeval,model = InfDecomp.do_it(p,KNITRO.KnitroSolver(algorithm=4,maxtime_cpu=time_l),tmpFloatDatatype)
         end
         feasstats = InfDecomp.check_feasibility(model,myeval,solver)
         s = tot_var(p,true_p)
