@@ -5,9 +5,12 @@ include("try.jl")
 
 solvers_list = [:Mosek]
 
+tmpFloatDatatype = Float64
+
+
 list= String[]
 for i in 1:5
-    push!(list, "Data/gauss-$i")
+    push!(list, "../PDFs/Data/gauss-$i")
 end
 size =[1,0.75,0.5,0.4]
 list_instances=String[]
@@ -22,7 +25,7 @@ for solver in solvers_list
         println("///////////////////////////")
         println("Starting computations of the distribution: ", instance," with ", solver)
         println("///////////////////////////")
-        test(solver, instance, instance)
+        test(solver, instance, instance,  tmpFloatDatatype)
         println("///////////////////////////")
         println("Finishing computations of the distribution: ", instance," with ", solver)
         println("///////////////////////////")

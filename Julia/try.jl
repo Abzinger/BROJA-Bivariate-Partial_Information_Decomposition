@@ -71,13 +71,10 @@ end
 #-------
 #RUN IT
 #-------
-function test(solver::Symbol,w1::String, w2::String)
+function test(solver::Symbol,w1::String, w2::String, tmpFloatDatatype::DataType)
     p = read_p(w1)
     true_p = read_p(w2)
     time_l = 10000.0
-
-    tmpFloatDatatype = Float64
-
     if (solver != :Cvxopt)
         if (solver == :Mosek)
             println("Start optimization with Mosek...")
