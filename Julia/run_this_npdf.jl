@@ -9,7 +9,7 @@ include("try.jl")
 # true_list = ["../PDFs/Data/RDNXOR-0.0-0.dens"]
 # true_list = ["../PDFs/Data/RDNUNQXOR-0.0-0.dens"]
 
- list = ["../PDFs/Data/XOR-0.05-100000.dens","../PDFs/Data/AND-0.05-100000.dens","../PDFs/Data/UNQ-0.05-100000.dens","../PDFs/Data/RDN-0.05-100000.dens","../PDFs/Data/XORAND-0.05-100000.dens","../PDFs/Data/RDNXOR-0.05-100000.dens","../PDFs/Data/RDNUNQXOR-0.05-100000.dens"]
+ list = ["../PDFs/Data/XOR-0.1-10000.dens","../PDFs/Data/AND-0.1-10000.dens","../PDFs/Data/UNQ-0.1-10000.dens","../PDFs/Data/RDN-0.1-10000.dens","../PDFs/Data/XORAND-0.1-10000.dens","../PDFs/Data/RDNXOR-0.1-10000.dens","../PDFs/Data/RDNUNQXOR-0.1-10000.dens"]
 # list = ["../PDFs/Data/XOR-0.1-10000.dens"]
 # list = ["../PDFs/Data/AND-0.1-10000.dens"]
 # list = ["../PDFs/Data/UNQ-0.1-10000.dens"]
@@ -37,7 +37,7 @@ end#^s
 # end#^s
 
 # solvers_list = [:Mosek, :Ipopt, :Knitro_Ip, :Knitro_IpCG, :Knitro_AS, :Knitro_SQP, :Cvxopt]
-solvers_list = [:Ipopt]
+solvers_list = [:Mosek]
 tmpFloatDatatype = Float64
 for s in 1:length(list_new)
     for solver in solvers_list
