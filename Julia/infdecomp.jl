@@ -800,7 +800,7 @@ using Base.Test
 
 
 function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::DataType=BigFloat, warmstart::Bool=false)
-    print("Starting optimization now! (",now(),")")
+    print("Starting optimization now (",now(),")!\n")
 
     # global count_hesseval = 0
     const model = MathProgBase.NonlinearModel(solver)
