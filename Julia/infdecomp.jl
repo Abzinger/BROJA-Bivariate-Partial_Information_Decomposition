@@ -278,7 +278,7 @@ function ∇f{TFloat,TFloat_2}(e::My_Eval, grad::Vector{TFloat_2}, p::Vector{TFl
                 i = e.varidx[x,y,z]
                 if i>0
                     P_xyz::TFloat = TFloat( p[i] )
-                    grad[i] = TFloat_2(   (P_xyz ≤ 0 || P_yz  ≤ 0) ?  TFloat(0.)  : log( P_xyz / P_yz )  )
+                    grad[i] = TFloat_2(   (P_xyz ≤ 0 || P_yz ≤ 0) ?  -log(TFloat(e.n_x))  : log( P_xyz / P_yz )  )
                 end
             end
         end# for y
