@@ -287,7 +287,31 @@ function ∇f{TFloat,TFloat_2}(e::My_Eval, grad::Vector{TFloat_2}, p::Vector{TFl
 end # ∇f()
 
 # G L O B A L   V A R I A B L E
-ill_sol = nothing
+global__ill_sol   = nothing
+ill_sol__copy_sol = nothing
+function ill_sol__do_copy_sol(x) :: Void
+    if global__ill_sol == nothing
+        global copy(!global__ill_sol,x)
+    else
+        global global__ill_sol .= x
+    end
+    ;
+end
+function  ill_sol__dont_copy_sol(x) :: Void
+    ;
+end
+
+function set_copy_sol_behaviour(doit::Bool)
+    if doit
+        global__ill_sol   = nothing
+        ill_sol__copy_sol = ill_sol__do_copy_sol()
+    else
+        global__ill_sol   = nothing
+        ill_sol__copy_sol = ill_sol__dont_copy_sol()
+    end
+    ;
+end
+
 # eval_grad_f --- eval gradient of objective function
 function eval_grad_f(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}) :: Void
     if e.TmpFloat==BigFloat
@@ -300,7 +324,7 @@ function eval_grad_f(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}) :: Void
     end
     e.count_eval_grad_f += 1
     # Useful when Mosek status is unknown
-    global ill_sol = x      # B U G           <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    global global__ill_sol = x      # B U G           <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
     return nothing
     ;
 end # eval_grad_f()
@@ -458,7 +482,7 @@ end # eval_hesslag()
 function marginal_X{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: Array{TFloat_2,1}
     if TFloat_2==BigFloat
         prc = precision(BigFloat)
-        setprecision(BigFloat,e.bigfloat_nbits)        
+        setprecision(BigFloat,e.bigfloat_nbits)
     end
     marg_x::Array{TFloat_2,1}  = zeros(TFloat_2,e.n_x)
     if TFloat_2==BigFloat
@@ -644,7 +668,7 @@ end#^ I_X_Y
 
 
 # I_X_Y__Z --- Mutual information of X & Y|Z --- I(X;Y|Z)
-    
+
 function I_X_Y__Z{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TFloat)   :: TFloat_2
     if TFloat_2==BigFloat
         prc = precision(BigFloat)
@@ -931,7 +955,8 @@ function check_feasibility(model, myeval, solver) :: Solution_and_Stats
         fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
         fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
     else
-        q = Vector{Float64}( ill_sol )
+        if global__ill_sol != nothing:
+        q = Vector{Float64}( global__ill_sol )
         fstat.mu_nonneg_viol = -10
         fstat.complementarity_max = -10
         fstat.complementarity_sum = -10
