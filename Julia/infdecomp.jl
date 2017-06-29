@@ -286,6 +286,7 @@ function ∇f{TFloat,TFloat_2}(e::My_Eval, grad::Vector{TFloat_2}, p::Vector{TFl
     ;
 end # ∇f()
 
+####################################################################################################
 # G L O B A L   V A R I A B L E
 global__ill_sol   = nothing
 ill_sol__copy_sol = nothing
@@ -311,6 +312,8 @@ function set_copy_sol_behaviour(doit::Bool)
     end
     ;
 end
+####################################################################################################
+
 
 # eval_grad_f --- eval gradient of objective function
 function eval_grad_f(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}) :: Void
@@ -324,7 +327,7 @@ function eval_grad_f(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}) :: Void
     end
     e.count_eval_grad_f += 1
     # Useful when Mosek status is unknown
-    global global__ill_sol = x      # B U G           <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    ill_sol__copy_sol(x)
     return nothing
     ;
 end # eval_grad_f()
