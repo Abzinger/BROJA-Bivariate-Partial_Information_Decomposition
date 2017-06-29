@@ -326,8 +326,10 @@ function eval_grad_f(e::My_Eval, g::Vector{Float64}, x::Vector{Float64}) :: Void
         ∇f(e,g,x,Float64(0))
     end
     e.count_eval_grad_f += 1
-    # Useful when Mosek status is unknown
+
+    # Crap:
     ill_sol__copy_sol(x)
+
     return nothing
     ;
 end # eval_grad_f()
@@ -958,8 +960,9 @@ function check_feasibility(model, myeval, solver) :: Solution_and_Stats
         fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
         fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
     else
-        if global__ill_sol != nothing:
-        q = Vector{Float64}( global__ill_sol )
+        if global__ill_sol != nothing
+            q = Vector{Float64}( global__ill_sol )
+        end
         fstat.mu_nonneg_viol = -10
         fstat.complementarity_max = -10
         fstat.complementarity_sum = -10
