@@ -304,11 +304,11 @@ end
 
 function set_copy_sol_behaviour(doit::Bool)
     if doit
-        global__ill_sol   = nothing
-        ill_sol__copy_sol = ill_sol__do_copy_sol()
+        global global__ill_sol   = nothing
+        global ill_sol__copy_sol = ill_sol__do_copy_sol()
     else
-        global__ill_sol   = nothing
-        ill_sol__copy_sol = ill_sol__dont_copy_sol()
+        global global__ill_sol   = nothing
+        global ill_sol__copy_sol = ill_sol__dont_copy_sol()
     end
     ;
 end
