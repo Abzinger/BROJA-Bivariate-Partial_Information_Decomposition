@@ -161,14 +161,15 @@ class Cvxopt_Solve:
         for xyz,i in self.var_idx.items():
             x,y,z = xyz
             if p[i] > 0: f += p[i]*log(p[i]/p_yz[y,z])
-#            if p[i] > 1.e-10: f += p[i]*log(p[i]/p_yz[y,z])
 
         # Compute gradient-transpose Df(p)
         list_Df = [ 0. for xyz in self.var_idx.keys() ]
         for xyz,i in self.var_idx.items():
             x,y,z = xyz
-            if p[i] > 0:  list_Df[i] = log( p[i] / p_yz[y,z] )
-#            if p[i] > 1.e-30:  list_Df[i] = log( p[i] / p_yz[y,z] )
+            pyzyz = p_yz[y,z]
+            if p[i] > 0:     list_Df[i] = log( p[i] / pyzyz )
+            elif pyzyz <= 0: list_Df[i] = -log(len(self.X))
+            else:            list_Df[i] = -exp(max(10,len(self.X)))
         Df = matrix(list_Df, (1,N), 'd')
 
         if zz is None:
@@ -187,11 +188,10 @@ class Cvxopt_Solve:
                     rows.append( i )
                     columns.append( i )
                     tmp_quot = zz[0] * p_yz__x / p_yz[y,z] # 1/p[x,y,z] - 1/p[*,y,z] = ( p[*,y,z] - p[x,y,z] )/( p[*,y,z] p[x,y,z] )
-                    if p[i] > 0 * tmp_quot:   entries.append( tmp_quot / p[i] )
-#                    if p[i] > 1.e-100 * tmp_quot:   entries.append( tmp_quot / p[i] )
+                    if p[i] > 0:   entries.append( tmp_quot / p[i] )
                     else:
                         print("TROUBLE computing Hessian (diagonal)")
-                        entries.append( 0. )
+                        entries.append( -1.e-300 )
                 else: # off diagonal
                     if (x_,y,z) in self.var_idx:
                         j = self.var_idx[ (x_,y,z) ]

@@ -37,7 +37,7 @@ end#^s
 # end#^s
 
 # solvers_list = [:Mosek, :Ipopt, :Knitro_Ip, :Knitro_IpCG, :Knitro_AS, :Knitro_SQP, :Cvxopt]
-solvers_list = [:Mosek]
+solvers_list = [:Mosek,:Ipopt]
 tmpFloatDatatype = Float64
 for s in 1:length(list_new)
     for solver in solvers_list
