@@ -292,7 +292,7 @@ global__ill_sol   = nothing
 ill_sol__copy_sol = nothing
 function ill_sol__do_copy_sol(x) :: Void
     if global__ill_sol == nothing
-        global copy(!global__ill_sol,x)
+        copy(!global__ill_sol,x)
     else
         global global__ill_sol .= x
     end
