@@ -299,7 +299,7 @@ function ill_sol__do_copy_sol(x) :: Void
     ;
 end
 function  ill_sol__dont_copy_sol(x) :: Void
-    ;
+    return nothing
 end
 
 function set_copy_sol_behaviour(doit::Bool)
