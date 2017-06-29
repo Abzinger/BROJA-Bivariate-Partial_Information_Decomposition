@@ -917,7 +917,8 @@ type Solution_and_Stats
     z_sz                :: Int64
     status              :: Symbol
     obj_val             :: BigFloat
-    q_nonnegativity     :: BigFloat
+    q_nonneg_viol       :: BigFloat
+    q_min_entry         :: BigFloat
     marginals_1         :: BigFloat
     marginals_2         :: BigFloat
     marginals_Inf       :: BigFloat
@@ -955,7 +956,7 @@ function check_feasibility(model, myeval, solver) :: Solution_and_Stats
 
         mu = grad - myeval.Gt*lambda
 
-        fstat.mu_nonneg_viol = -minimum(mu)
+        fstat.mu_nonneg_viol = max(-minimum(mu),0)
 
         fstat.complementarity_max = maximum( abs.(mu) .* abs.(q) )
         fstat.complementarity_sum = sum( abs.(mu) .* abs.(q) )
@@ -970,7 +971,8 @@ function check_feasibility(model, myeval, solver) :: Solution_and_Stats
 
     fstat.obj_val = eval_f(myeval,q,Float64(0))
 
-    fstat.q_nonnegativity = -minimum(q)
+    fstat.q_nonneg_viol = max(-minimum(q),0)
+    fstat.q_min_entry   = max(minimum(q),0)
 
     equation = (q'*myeval.Gt)' - myeval.rhs
     fstat.marginals_1   = norm(equation,1)

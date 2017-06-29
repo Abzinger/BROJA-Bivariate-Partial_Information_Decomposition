@@ -45,28 +45,30 @@ end
 #-------------------------------------------------
 # Solutions & Statistics for Cvxopt
 #-------------------------------------------------
-type Solution_and_Stats
-    var_num             :: Int64
-    x_sz                :: Int64
-    y_sz                :: Int64
-    z_sz                :: Int64
-    status              :: Symbol
-    obj_val             :: BigFloat
-    q_nonnegativity     :: BigFloat
-    marginals_1         :: BigFloat
-    marginals_2         :: BigFloat
-    marginals_Inf       :: BigFloat
-    mu_nonneg_viol      :: BigFloat
-    complementarity_max :: BigFloat
-    complementarity_sum :: BigFloat
-    # MI_X_YZ             :: BigFloat
-    CI                  :: BigFloat
-    SI                  :: BigFloat
-    UI_Y                :: BigFloat
-    UI_Z                :: BigFloat
-    opt_time            :: String
-    # entropy_X           :: BigFloat
-end
+# type Solution_and_Stats
+#     var_num             :: Int64
+#     x_sz                :: Int64
+#     y_sz                :: Int64
+#     z_sz                :: Int64
+#     status              :: Symbol
+#     obj_val             :: BigFloat
+#     q_nonneg_viol       :: BigFloat
+#     marginals_1         :: BigFloat
+#     marginals_2         :: BigFloat
+#     marginals_Inf       :: BigFloat
+#     mu_nonneg_viol      :: BigFloat
+#     complementarity_max :: BigFloat
+#     complementarity_sum :: BigFloat
+#     # MI_X_YZ           :: BigFloat
+#     CI                  :: BigFloat
+#     SI                  :: BigFloat
+#     UI_Y                :: BigFloat
+#     UI_Z                :: BigFloat
+#     opt_time            :: String
+#     # entropy_X           :: BigFloat
+# end
+
+Solution_and_Stats = InfDecomp.Solution_and_Stats
 
 #-------
 #RUN IT
@@ -134,8 +136,8 @@ function test(solver::Symbol,w1::String, w2::String, tmpFloatDatatype::DataType)
         println("Start optimization with Cvxopt...")
         pdf = PyDict(p)
         fstat  = Solution_and_Stats( 0,0,0,0," ",  0,0,0,0,0,0,0,0,0,0,0,0," ")
-        fstat.var_num, fstat.x_sz, fstat.y_sz, fstat.z_sz, fstat.status, fstat.obj_val, fstat.q_nonnegativity, fstat.marginals_1, fstat.marginals_2, fstat.marginals_Inf, fstat.mu_nonneg_viol, fstat.complementarity_max, fstat.complementarity_sum, fstat.CI, fstat.SI, fstat.UI_Y, fstat.UI_Z = cvxopt_solve.solve_PDF(p,time_l*1000)
-        fstat.opt_time = "NOT AVAILABLE"
+        fstat.var_num, fstat.x_sz, fstat.y_sz, fstat.z_sz, fstat.status, fstat.obj_val, fstat.q_nonneg_viol, fstat.marginals_1, fstat.marginals_2, fstat.marginals_Inf, fstat.mu_nonneg_viol, fstat.complementarity_max, fstat.complementarity_sum, fstat.CI, fstat.SI, fstat.UI_Y, fstat.UI_Z = cvxopt_solve.solve_PDF(p,time_l*1000)
+        fstat.opt_time = -1
 
         s = tot_var(p,true_p)
         open("feas_stats_64_gu_9.csv", "a") do ffile
