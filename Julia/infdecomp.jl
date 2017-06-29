@@ -288,8 +288,8 @@ end # ∇f()
 
 ####################################################################################################
 # G L O B A L   V A R I A B L E
-global__ill_sol   = nothing
-ill_sol__copy_sol = nothing
+global__ill_sol   = "What?!???"
+ill_sol__copy_sol = "Oh, no!!!"
 function ill_sol__do_copy_sol(x) :: Void
     if global__ill_sol == nothing
         copy(!global__ill_sol,x)
