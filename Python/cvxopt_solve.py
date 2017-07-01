@@ -1,4 +1,5 @@
 import numpy
+import time
 from cvxopt import solvers, matrix, spmatrix, spdiag, log
 class Cvxopt_Solve:
     def __init__(self, marg_xy, marg_xz, _set_to_zero=set()):
@@ -24,13 +25,24 @@ class Cvxopt_Solve:
         self.solver_ret   = None
         self.p_final      = None
         self.set_to_zero  = _set_to_zero
-
+        self.est_opt      = None
+        self.num_eval_f      = None
+        self.num_eval_grad_f = None
+        self.num_eval_g      = None
+        self.num_eval_jac_g  = None
+        self.num_hessevals   = None
         # Actual code:
         self.orig_marg_xy = dict(marg_xy)
         self.orig_marg_xz = dict(marg_xz)
         self.X = set( [ x   for x,y in self.orig_marg_xy.keys() ] + [ x   for x,z in self.orig_marg_xz.keys() ] )
         self.Y = set( [  y  for x,y in self.orig_marg_xy.keys() ] )
         self.Z = set(                                               [  z  for x,z in self.orig_marg_xz.keys() ] )
+        self.num_eval_f      = 0
+        self.num_eval_grad_f = 0
+        self.num_eval_g      = -1
+        self.num_eval_jac_g  = -1
+        self.num_hessevals   = 0
+        self.est_opt         = 0
     # __init__()
 
     # tidy_up_distrib():
@@ -173,6 +185,8 @@ class Cvxopt_Solve:
         Df = matrix(list_Df, (1,N), 'd')
 
         if zz is None:
+            self.num_eval_f      += 1
+            self.num_eval_grad_f += 1
             return f,Df
 
         # Compute zz[0] * Hess f
@@ -205,6 +219,9 @@ class Cvxopt_Solve:
 
         zH = spmatrix( entries, rows, columns, (N,N), 'd')
         # if self.verbose_output: print("p=",list(p))
+        self.num_eval_f      += 1
+        self.num_eval_grad_f += 1
+        self.num_hessevals   += 1
         return f,Df,zH
     #^ callback()
 
@@ -224,9 +241,10 @@ class Cvxopt_Solve:
         self.create_equations()
         self.create_ieqs()
         self.make_initial_solution()
-
+        start_opt = time.clock()
         self.solver_ret   = solvers.cp(self.callback, G=self.G, h=self.h, A=self.A, b=self.b)
         print("Solver terminated with status ",self.solver_ret['status'])
+        self.est_opt = (time.clock() - start_opt)
     #^ solve_it()
 
     def check_feasibility(self):
@@ -255,7 +273,8 @@ class Cvxopt_Solve:
         
         obj_val,gradient = self.callback(q_list)
 
-        q_nonnegativity = -min(q)
+        q_nonneg_viol = max(-min(q),0)
+        q_min_entry   = max(min(q),0)
         
         # self.A*p - self.b
 
@@ -277,16 +296,28 @@ class Cvxopt_Solve:
         complementarity_max = max( numpy.multiply( numpy.absolute(mu), numpy.absolute(q) ) )
         complementarity_sum = sum( numpy.multiply( numpy.absolute(mu), numpy.absolute(q) ) )
 
-        return  var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity[0], marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol[0], complementarity_max[0], complementarity_sum[0]
+        CI   = -1.0
+        SI   = -1.0
+        UI_Y = -1.0
+        UI_Z = -1.0
+
+        num_eval_f      = self.num_eval_f
+        num_eval_grad_f = self.num_eval_grad_f
+        num_eval_g      = self.num_eval_g
+        num_eval_jac_g  = self.num_eval_jac_g
+        num_hessevals   = self.num_hessevals
+        opt_time        = self.est_opt
+
+        return  var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry[0], marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol[0], complementarity_max[0], complementarity_sum[0], CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time
     #^ check_feasibility()
     
     def do_it(self):
 
         self.solve_it()
 
-        var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum = self.check_feasibility()
+        var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time = self.check_feasibility()
         
-        return  var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum
+        return  var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time
     #^do_it()
 
     
@@ -328,18 +359,18 @@ def solve_PDF(pdf):
     p_xy = marginal_xy(pdf)
     p_xz = marginal_xz(pdf)
     cvx = Cvxopt_Solve(p_xy,p_xz)
-    var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum = cvx.do_it()
+    var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time = cvx.do_it()
     
-    return var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum
+    return var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time
 
 
 ###########
 # Test Run
 ###########
 #pdf = {(0,0,0):.5, (1,1,1):.5}
-#pdf = {((0,0),0,0):.25, ((0,1),0,1):.25, ((1,0),1,0):.25, ((1,1),1,1):.25}
-#pdf = {(0,0,0):.25,(1,0,1):.25,(1,1,0):.25,(0,1,1):.25}
-#pdf = {(0,0,0):.25, (0,0,1):.25, (0,1,0):.25, (1,1,1):.25}
+# pdf = {((0,0),0,0):.25, ((0,1),0,1):.25, ((1,0),1,0):.25, ((1,1),1,1):.25}
+# pdf = {(0,0,0):.25,(1,0,1):.25,(1,1,0):.25,(0,1,1):.25}
+# pdf = {(0,0,0):.25, (0,0,1):.25, (0,1,0):.25, (1,1,1):.25}
 # pdf = {
 #             ((0,0), (0,0), (0,0)): .125,
 #             ((1,0), (0,0), (1,0)): .125,
@@ -392,4 +423,4 @@ def solve_PDF(pdf):
 #             ((0,1), 1, 1): .25,
 #         }
 
-# solve_PDF(pdf)
+#solve_PDF(pdf)

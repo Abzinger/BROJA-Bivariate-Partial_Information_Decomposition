@@ -1,7 +1,8 @@
 import numpy
+import time
 from cvxopt import solvers, matrix, spmatrix, spdiag, log
 class Cvxopt_Solve:
-    def __init__(self, marg_xy, marg_xz, _time_l, _set_to_zero=set()):
+    def __init__(self, marg_xy, marg_xz, _set_to_zero=set()):
         # marg_xy is a dictionary     (x,y) --> positive double
         # marg_xz is a dictionary     (x,z) --> positive double
 
@@ -24,14 +25,24 @@ class Cvxopt_Solve:
         self.solver_ret   = None
         self.p_final      = None
         self.set_to_zero  = _set_to_zero
-        self.time_l       = _time_l
-
+        self.est_opt      = None
+        self.num_eval_f      = None
+        self.num_eval_grad_f = None
+        self.num_eval_g      = None
+        self.num_eval_jac_g  = None
+        self.num_hessevals   = None
         # Actual code:
         self.orig_marg_xy = dict(marg_xy)
         self.orig_marg_xz = dict(marg_xz)
         self.X = set( [ x   for x,y in self.orig_marg_xy.keys() ] + [ x   for x,z in self.orig_marg_xz.keys() ] )
         self.Y = set( [  y  for x,y in self.orig_marg_xy.keys() ] )
         self.Z = set(                                               [  z  for x,z in self.orig_marg_xz.keys() ] )
+        self.num_eval_f      = 0
+        self.num_eval_grad_f = 0
+        self.num_eval_g      = -1
+        self.num_eval_jac_g  = -1
+        self.num_hessevals   = 0
+        self.est_opt         = 0
     # __init__()
 
     # tidy_up_distrib():
@@ -162,17 +173,20 @@ class Cvxopt_Solve:
         for xyz,i in self.var_idx.items():
             x,y,z = xyz
             if p[i] > 0: f += p[i]*log(p[i]/p_yz[y,z])
-#            if p[i] > 1.e-10: f += p[i]*log(p[i]/p_yz[y,z])
 
         # Compute gradient-transpose Df(p)
         list_Df = [ 0. for xyz in self.var_idx.keys() ]
         for xyz,i in self.var_idx.items():
             x,y,z = xyz
-            if p[i] > 0:  list_Df[i] = log( p[i] / p_yz[y,z] )
-#            if p[i] > 1.e-30:  list_Df[i] = log( p[i] / p_yz[y,z] )
+            pyzyz = p_yz[y,z]
+            if p[i] > 0:     list_Df[i] = log( p[i] / pyzyz )
+            elif pyzyz <= 0: list_Df[i] = -log(len(self.X))
+            else:            list_Df[i] = -exp(max(10,len(self.X)))
         Df = matrix(list_Df, (1,N), 'd')
 
         if zz is None:
+            self.num_eval_f      += 1
+            self.num_eval_grad_f += 1
             return f,Df
 
         # Compute zz[0] * Hess f
@@ -188,11 +202,10 @@ class Cvxopt_Solve:
                     rows.append( i )
                     columns.append( i )
                     tmp_quot = zz[0] * p_yz__x / p_yz[y,z] # 1/p[x,y,z] - 1/p[*,y,z] = ( p[*,y,z] - p[x,y,z] )/( p[*,y,z] p[x,y,z] )
-                    if p[i] > 0 * tmp_quot:   entries.append( tmp_quot / p[i] )
-#                    if p[i] > 1.e-100 * tmp_quot:   entries.append( tmp_quot / p[i] )
+                    if p[i] > 0:   entries.append( tmp_quot / p[i] )
                     else:
                         print("TROUBLE computing Hessian (diagonal)")
-                        entries.append( 0. )
+                        entries.append( -1.e-300 )
                 else: # off diagonal
                     if (x_,y,z) in self.var_idx:
                         j = self.var_idx[ (x_,y,z) ]
@@ -206,6 +219,9 @@ class Cvxopt_Solve:
 
         zH = spmatrix( entries, rows, columns, (N,N), 'd')
         # if self.verbose_output: print("p=",list(p))
+        self.num_eval_f      += 1
+        self.num_eval_grad_f += 1
+        self.num_hessevals   += 1
         return f,Df,zH
     #^ callback()
 
@@ -225,11 +241,10 @@ class Cvxopt_Solve:
         self.create_equations()
         self.create_ieqs()
         self.make_initial_solution()
-        #solvers.options['tm_lim'] =  self.time_l
-        solvers.options['glpk'] = {'tm_lim' : self.time_l}
-        solvers.options['maxiters'] = 200
+        start_opt = time.clock()
         self.solver_ret   = solvers.cp(self.callback, G=self.G, h=self.h, A=self.A, b=self.b)
         print("Solver terminated with status ",self.solver_ret['status'])
+        self.est_opt = (time.clock() - start_opt)
     #^ solve_it()
 
     def check_feasibility(self):
@@ -248,17 +263,18 @@ class Cvxopt_Solve:
             q[iter] = self.solver_ret['x'][i]
             iter += 1
         
-        q_ = dict()
-        for xyz,i in self.var_idx.items():
-            q_[xyz] = self.solver_ret['x'][i]
-        self.p_final = q_
+        # q_ = dict()
+        # for xyz,i in self.var_idx.items():
+        #     q_[xyz] = self.solver_ret['x'][i]
+        # self.p_final = q_
         q_list = []
         for i in self.var_idx.values():
             q_list.append(self.solver_ret['x'][i])
         
         obj_val,gradient = self.callback(q_list)
 
-        q_nonnegativity = -min(q)
+        q_nonneg_viol = max(-min(q),0)
+        q_min_entry   = max(min(q),0)
         
         # self.A*p - self.b
 
@@ -279,18 +295,29 @@ class Cvxopt_Solve:
         
         complementarity_max = max( numpy.multiply( numpy.absolute(mu), numpy.absolute(q) ) )
         complementarity_sum = sum( numpy.multiply( numpy.absolute(mu), numpy.absolute(q) ) )
-        
 
-        return var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity[0], marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol[0], complementarity_max[0], complementarity_sum[0]
+        CI   = -1.0
+        SI   = -1.0
+        UI_Y = -1.0
+        UI_Z = -1.0
+
+        num_eval_f      = self.num_eval_f
+        num_eval_grad_f = self.num_eval_grad_f
+        num_eval_g      = self.num_eval_g
+        num_eval_jac_g  = self.num_eval_jac_g
+        num_hessevals   = self.num_hessevals
+        opt_time        = self.est_opt
+
+        return  var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry[0], marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol[0], complementarity_max[0], complementarity_sum[0], CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time
     #^ check_feasibility()
     
     def do_it(self):
 
         self.solve_it()
 
-        var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum = self.check_feasibility()
+        var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time = self.check_feasibility()
         
-        return  var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum
+        return  var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time
     #^do_it()
 
     
@@ -328,107 +355,19 @@ def marginal_yz(p):
         else:                       marg[(y,z)] =  r
     return marg
 
-def marginal_x(p):
-    marg  = dict()
-    for xyz,r in p.items():
-        x,y,z = xyz
-        if x in marg.keys():   marg[x] += r
-        else:                  marg[x] =  r
-    return marg
-
-def marginal_y(p):
-    marg  = dict()
-    for xyz,r in p.items():
-        x,y,z = xyz
-        if y in marg.keys():   marg[y] += r
-        else:                  marg[y] =  r
-    return marg
-
-def marginal_z(p):
-    marg  = dict()
-    for xyz,r in p.items():
-        x,y,z = xyz
-        if z in marg.keys():   marg[z] += r
-        else:                  marg[z] =  r
-    return marg
-
-#-------------
-# Inf Funcs
-#-------------
-
-def I_X_YZ(p):
-    # Mutual information I( X ; YZ )
-    p_x = marginal_x(p)
-    p_yz = marginal_yz(p)
-    mysum = 0
-    for xyz,t in p.items():
-        x,y,z = xyz
-        if t>0:  mysum += t * log( t / ( p_x[x]*p_yz[(y,z)] ) )
-    return mysum/log(2)
-#^ I_X_YZ()
-
-def I_X_Y(p):
-    # Mutual information I( X ; Y )
-    p_x  = marginal_x(p)
-    p_y  = marginal_y(p)
-    p_xy = marginal_xy(p)
-    mysum = 0
-    for xy,t in p_xy.items():
-        x,y = xy
-        if t>0:  mysum += t * log( t / ( p_x[x]*p_y[y] ) )
-    return mysum/log(2)
-#^ I_X_Y()
-
-def cond_I_X_Y__Z(p):
-    # Conditional mutual information I( X ; Y | Z )
-    p_z  = marginal_z(p)
-    p_xz = marginal_xz(p)
-    p_yz = marginal_yz(p)
-    mysum = 0
-    for xyz,t in p.items():
-        x,y,z = xyz
-        if t>0:  mysum += t * log( ( t * p_z[z] )/( p_xz[(x,z)]*p_yz[(y,z)] ) )
-    return mysum/log(2)
-#^ cond_I_X_Y__Z()
-
-def cond_I_X_Z__Y(p):
-    # Conditional mutual information I( X ; Y | Z )
-    p_y  = marginal_y(p)
-    p_xy = marginal_xy(p)
-    p_yz = marginal_yz(p)
-    mysum = 0
-    for xyz,t in p.items():
-        x,y,z = xyz
-        if t>0:  mysum += t * log( ( t * p_y[y] )/( p_xy[(x,y)]*p_yz[(y,z)] ) )
-    return mysum/log(2)
-#^ cond_I_X_Z__Y()
-
-# Synergistic Information
-def wriggle_CI(p,q):
-    return I_X_YZ(p) - I_X_YZ(q)
-#^ wriggle_CI()
-
-# Shared Information
-def wriggle_SI(q):
-    return I_X_Y(q) - cond_I_X_Y__Z(q)
-#^ wriggle_SI()
-
-def solve_PDF(pdf,time_l):
+def solve_PDF(pdf):
     p_xy = marginal_xy(pdf)
     p_xz = marginal_xz(pdf)
-    cvx = Cvxopt_Solve(p_xy,p_xz,time_l)
-    var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum = cvx.do_it()
-    CI = wriggle_CI(pdf, cvx.p_final)
-    SI = wriggle_SI(cvx.p_final)
-    UI_Y = cond_I_X_Y__Z(cvx.p_final)
-    UI_Z = cond_I_X_Z__Y(cvx.p_final)
-    return var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonnegativity, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z
+    cvx = Cvxopt_Solve(p_xy,p_xz)
+    var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time = cvx.do_it()
+    
+    return var_num, x_sz, y_sz, z_sz, status, obj_val, q_nonneg_viol, q_min_entry, marginals_1, marginals_2, marginals_Inf, mu_nonneg_viol, complementarity_max, complementarity_sum, CI, SI, UI_Y, UI_Z, num_eval_f, num_eval_grad_f, num_eval_g, num_eval_jac_g, num_hessevals, opt_time
 
 
 ###########
 # Test Run
 ###########
-# pdf = {(0,0,0):.5, (1,1,1):.5}
+#pdf = {(0,0,0):.5, (1,1,1):.5}
 # pdf = {((0,0),0,0):.25, ((0,1),0,1):.25, ((1,0),1,0):.25, ((1,1),1,1):.25}
 # pdf = {(0,0,0):.25,(1,0,1):.25,(1,1,0):.25,(0,1,1):.25}
 # pdf = {(0,0,0):.25, (0,0,1):.25, (0,1,0):.25, (1,1,1):.25}
@@ -484,4 +423,4 @@ def solve_PDF(pdf,time_l):
 #             ((0,1), 1, 1): .25,
 #         }
 
-# solve_PDF(pdf, 1000000)
+#solve_PDF(pdf)
