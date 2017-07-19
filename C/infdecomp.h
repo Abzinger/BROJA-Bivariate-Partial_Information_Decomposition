@@ -17,19 +17,31 @@
 #ifndef __Tartu_Inf_Decomp__infdecomp_h__
 #define __Tartu_Inf_Decomp__infdecomp_h__
 
-typedef struct TID                       * TID_Ptr_t;
+extern
+struct TID_Global_Stuff
+{
+     double negative_probability;  // init'd to   -1.e-5
+     double probability_gtr_1;     // init'd to    1.00001
+}                                                  TID_global_stuff;
+
 typedef enum   TID_Error
 {
      TIDerr_OK                      = 0,
      TIDerr_FATAL_out_of_mem,
+     TIDerr_Input_sizeXYZ,
+     TIDerr_Input_p_neg,
+     TIDerr_Input_p_gtr1,
+     TIDerr_Input_marginal_neg
 }                                          TID_Error_t;
+
+typedef struct TID    * TID_Ptr_t;
 
 extern
 const char * infdecomp_error_message(TID_Error_t);
 
 extern
-TID_Ptr_t * infdecomp_setup(unsigned n_X, unsigned n_Y, unsigned n_Z, const double p[],
-                            TID_Error_t *p_err);
+TID_Ptr_t infdecomp_setup(unsigned n_X, unsigned n_Y, unsigned n_Z, const double p[],
+                          TID_Error_t *p_err);
 // Parameters
 // ==========
 // Input

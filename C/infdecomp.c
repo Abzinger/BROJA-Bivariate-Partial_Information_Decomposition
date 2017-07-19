@@ -19,13 +19,14 @@
 #include <math.h>
 #include <stdlib.h>
 
+struct TID_Global_Stuff TID_global_stuff = {
+     .negative_probability = -1.e-5,
+     .probability_gtr_1    = 1.00001
+};
+
 // ****************************************************
 // M a r g i n a l    E q u a t i o n s    S t u f f
 //- - - - - - - - - - - - - - - - - - - - - - - - - - -
-static
-inline unsigned atXYZ(int x, int y, int z, int n_X, int n_Y) { return x + n_X*( y + n_Y*z ); }
-
-
 struct Marginal_Eqns  create_Marginal_Eqns(const int n_X, const int n_Y, const int n_Z, const double p[],
                                            TID_Error_t *p_err)
 {
@@ -38,8 +39,8 @@ struct Marginal_Eqns  create_Marginal_Eqns(const int n_X, const int n_Y, const i
      // ---------------
 
      // Wasting memory here, if many of the RHSs are 0...
-     me.xy   = malloc( n_X*n_Y*sizeof(struct XxY) );   if(!me.xy)   goto FATAL_ERROR;
-     me.b_xy = malloc( n_X*n_Y*sizeof(double) );       if(!me.b_xy) goto FATAL_ERROR;
+     me.xy   = malloc( n_X*n_Y*sizeof(struct XxY) );   if(!me.xy)   { *p_err=TIDerr_FATAL_out_of_mem; goto FATAL_ERROR; }
+     me.b_xy = malloc( n_X*n_Y*sizeof(double) );       if(!me.b_xy) { *p_err=TIDerr_FATAL_out_of_mem; goto FATAL_ERROR; }
 
      me.nnz_XY = 0;
      for(int y=0; y<n_Y; ++y) {
@@ -51,19 +52,20 @@ struct Marginal_Eqns  create_Marginal_Eqns(const int n_X, const int n_Y, const i
                     me.xy[me.nnz_XY]   = (struct XxY){.x=x,.y=y};
                     ++me.nnz_XY;
                }
+               else if (sum < TID_global_stuff.negative_probability) { *p_err=TIDerr_Input_marginal_neg; goto FATAL_ERROR; }
           }//^ for x
      }//^ for y
 
      // Free up unneeded space:
-     me.xy   = realloc(me.xy,   n_X*n_Y*sizeof(struct XxY) );   if(!me.xy)   goto FATAL_ERROR;
-     me.b_xy = realloc(me.b_xy, n_X*n_Y*sizeof(double) );       if(!me.b_xy) goto FATAL_ERROR;
+     me.xy   = realloc(me.xy,   n_X*n_Y*sizeof(struct XxY) );   if(!me.xy)   { *p_err=TIDerr_FATAL_out_of_mem; goto FATAL_ERROR; }
+     me.b_xy = realloc(me.b_xy, n_X*n_Y*sizeof(double) );       if(!me.b_xy) { *p_err=TIDerr_FATAL_out_of_mem; goto FATAL_ERROR; }
 
      // XxZ - Marginals
      // ---------------
 
      // Wasting memory here, if many of the RHSs are 0.... :-/
-     me.xz   = malloc( n_X*n_Z*sizeof(struct XxZ) );   if(!me.xz)   goto FATAL_ERROR;
-     me.b_xz = malloc( n_X*n_Z*sizeof(double) );       if(!me.b_xz) goto FATAL_ERROR;
+     me.xz   = malloc( n_X*n_Z*sizeof(struct XxZ) );   if(!me.xz)   { *p_err=TIDerr_FATAL_out_of_mem; goto FATAL_ERROR; }
+     me.b_xz = malloc( n_X*n_Z*sizeof(double) );       if(!me.b_xz) { *p_err=TIDerr_FATAL_out_of_mem; goto FATAL_ERROR; }
 
      me.nnz_XZ = 0;
      for(int z=0; z<n_Z; ++z) {
@@ -75,12 +77,13 @@ struct Marginal_Eqns  create_Marginal_Eqns(const int n_X, const int n_Y, const i
                     me.xz[me.nnz_XZ]   = (struct XxZ){.x=x,.z=z};
                     ++me.nnz_XZ;
                }
+               else if (sum < TID_global_stuff.negative_probability) { *p_err=TIDerr_Input_marginal_neg; goto FATAL_ERROR; }
           }//^ for x
      }//^ for z
 
      // Free up unneeded space:
-     me.xz   = realloc(me.xz,   n_X*n_Z*sizeof(struct XxZ) );   if(!me.xz)   goto FATAL_ERROR;
-     me.b_xz = realloc(me.b_xz, n_X*n_Z*sizeof(double) );       if(!me.b_xz) goto FATAL_ERROR;
+     me.xz   = realloc(me.xz,   n_X*n_Z*sizeof(struct XxZ) );   if(!me.xz)   { *p_err=TIDerr_FATAL_out_of_mem; goto FATAL_ERROR; }
+     me.b_xz = realloc(me.b_xz, n_X*n_Z*sizeof(double) );       if(!me.b_xz) { *p_err=TIDerr_FATAL_out_of_mem; goto FATAL_ERROR; }
 
      // Done
      // ----
@@ -96,7 +99,6 @@ FATAL_ERROR:
      free(me.b_xz);
      free(me.b_xy);
 
-     *p_err=TIDerr_FATAL_out_of_mem;
      return Marginal_Eqns__BAD;
 }//^ create_Marginal_Eqns()
 
@@ -215,6 +217,58 @@ void free_TripleData_and_VarData(struct TripleData *p_td)
      *p_td = TripleData__BAD;
 }//^ free_TripleData_and_VarData()
 
+// ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+// ******************************************
+// extern  S E T U P
+//- - - - - - - - - - - - - - - - - - - - - -
+
+TID_Ptr_t infdecomp_setup(unsigned n_X, unsigned n_Y, unsigned n_Z, const double p[],
+                          TID_Error_t *p_err)
+{
+     __label__ FATAL_ERROR;
+
+     struct Marginal_Eqns  margls   = Marginal_Eqns__BAD;
+     struct TripleData     triples  = TripleData__BAD;
+     struct Hessian_NZ     hess_NZ  = Hessian_NZ__BAD;
+     struct TID           *p_tid    = NULL;
+
+     // Check input data
+     // ----------------
+     if (n_X<2 || n_Y<2 || n_Z<2)                  *p_err = TIDerr_Input_sizeXYZ;
+     if (n_X*(double)n_Y*(double)n_Z > 134217727)  *p_err = TIDerr_Input_sizeXYZ;
+     if(*p_err) goto FATAL_ERROR;
+
+     for (int z=0; z<n_Z; ++z) {
+          for (int y=0; y<n_Y; ++y) {
+               for (int x=0; x<n_X; ++x) {
+                    if ( p[atXYZ(x,y,z,n_X,n_Y)] < TID_global_stuff.negative_probability ) *p_err  = TIDerr_Input_p_neg;
+                    if ( p[atXYZ(x,y,z,n_X,n_Y)] > TID_global_stuff.probability_gtr_1 )    *p_err  = TIDerr_Input_p_gtr1;
+               }
+          }
+     }
+     if(*p_err) goto FATAL_ERROR;
+
+
+     margls   = create_Marginal_Eqns(n_X,n_Y,n_Z, p, p_err);   if(*p_err) goto FATAL_ERROR;
+     triples  = create_TripleData_and_VarData(margls,p_err);   if(*p_err) goto FATAL_ERROR;
+     hess_NZ  = create_Hess_NZ(triples.vars, p_err);           if(*p_err) goto FATAL_ERROR;
+
+     p_tid = malloc(sizeof(struct TID));                       if(!p_tid) goto FATAL_ERROR;
+     *p_tid = (struct TID){.margls=margls,.triples=triples,.hess_NZ=hess_NZ};
+
+     *p_err = TIDerr_OK;
+     return p_tid;
+
+
+FATAL_ERROR:
+     free(p_tid);
+     free_Hess_NZ(&hess_NZ);
+     free_TripleData_and_VarData(&triples);
+     free_Marginal_Eqns(&margls);
+     return NULL;
+}//^ infdecomp_setup()
+
 
 
 // ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -283,15 +337,15 @@ bool subgrad(const struct VarData vars, const double q[], double sg[])
 // H e s s i a n   S t u f f
 // - - - - - - - - - - - - - - - -
 
-void free_hess_NZ(struct Hessian_NZ *p_hess_nz)
+void free_Hess_NZ(struct Hessian_NZ *p_hess_nz)
 {
      free(p_hess_nz->k);
      free(p_hess_nz->ell);
      *p_hess_nz = Hessian_NZ__BAD;
-}//^ free_hess_NZ()
+}//^ free_Hess_NZ()
 
 
-struct Hessian_NZ create_hess_NZ(const struct VarData vars, TID_Error_t *p_err)
+struct Hessian_NZ create_Hess_NZ(const struct VarData vars, TID_Error_t *p_err)
 {
      __label__ FATAL_ERROR;
 
@@ -328,7 +382,7 @@ FATAL_ERROR:
 
      *p_err=TIDerr_FATAL_out_of_mem;
      return Hessian_NZ__BAD;
-}//^ create_hess_NZ()
+}//^ create_Hess_NZ()
 
 void hess(const struct VarData vars, const double q[], double H[])
 {

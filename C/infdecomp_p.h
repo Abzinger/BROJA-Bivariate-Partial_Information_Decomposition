@@ -18,6 +18,9 @@
 #include "infdecomp.h"
 #include <stdbool.h>
 
+static
+inline unsigned atXYZ(int x, int y, int z, int n_X, int n_Y) { return x + n_X*( y + n_Y*z ); }
+
 // Marginal Equations
 // ------------------
 
@@ -83,9 +86,9 @@ struct Hessian_NZ
 
 // Constructor & desctructor:
 static
-struct Hessian_NZ create_hess_NZ (const struct VarData, TID_Error_t *p_err);  // may return (e.g.) TIDerr_FATAL_out_of_mem
+struct Hessian_NZ create_Hess_NZ (const struct VarData, TID_Error_t *p_err);  // may return (e.g.) TIDerr_FATAL_out_of_mem
 static
-void              free_hess_NZ   (struct Hessian_NZ *);
+void              free_Hess_NZ   (struct Hessian_NZ *);
 
 
 // Full Problem Data
@@ -94,6 +97,7 @@ void              free_hess_NZ   (struct Hessian_NZ *);
 // This is what the Mosek callback functions need to access.
 struct TID
 {
+     struct Marginal_Eqns  margls;
      struct TripleData     triples;
      struct Hessian_NZ     hess_NZ;
 };
