@@ -22,9 +22,6 @@ typedef enum   TID_Error
 {
      TIDerr_OK                      = 0,
      TIDerr_FATAL_out_of_mem,
-     TIDerr_zerovalue__eval,
-     TIDerr_zerovalue__grad,
-     TIDerr_zerovalue__hess,
 }                                          TID_Error_t;
 
 extern

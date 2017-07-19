@@ -90,14 +90,16 @@ void              free_hess_NZ   (struct Hessian_NZ *);
 
 // Full Problem Data
 // -----------------
+
+// This is what the Mosek callback functions need to access.
 struct TID
 {
-     int                   n_vars;
-     struct VarData        vars;
+     struct TripleData     triples;
      struct Hessian_NZ     hess_NZ;
-     
 };
 
+
+// TODO: Constructor, desctructor
 
 
 
