@@ -1,5 +1,5 @@
 // File:    Tartu_Information_Decomposition/infdecomp.c
-// Author:  Dirk Oliver Theis, Abdullah Makkeh http://theory.cs.ut.ee/
+// Author:  Dirk Oliver Theis http://theory.cs.ut.ee/
 //
 // Lang:    GNU C 11
 // Doc:     in-code
