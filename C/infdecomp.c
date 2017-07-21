@@ -19,11 +19,6 @@
 #include <math.h>
 #include <stdlib.h>
 
-struct TID_Global_Stuff TID_global_stuff = {
-     .negative_probability = -1.e-5,
-     .probability_gtr_1    = 1.00001
-};
-
 // ****************************************************
 // M a r g i n a l    E q u a t i o n s    S t u f f
 //- - - - - - - - - - - - - - - - - - - - - - - - - - -
