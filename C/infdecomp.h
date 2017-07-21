@@ -90,8 +90,8 @@ struct TID_Solution_Info
 
 
 extern
-struct TID_Solution_Info infdecomp_check_optimality(TID_Ptr_t, const double q[],
-                                                    TID_Error_T *p_err);
+struct TID_Solution_Info infdecomp_check_solution(TID_Ptr_t, const double q[],
+                                                  TID_Error_T *p_err);
 /*******************************************************************************
 Solves a Linear Program or Geometric Program to decide whether q is optimal for
 the instance stored in the TID pointer.
@@ -152,6 +152,14 @@ Return
                         including the actual bound on the optimality:
                         you want delta <= epsilon, but that may be optimistic.
                         Undefined content, if there was an error.
+*******************************************************************************/
+
+/*******************************************************************************
+
+Note: The delta value returned by infdecomp_optimize() may be different from
+      the one returned by infdecomp_check_solution() for the same solution.
+      The reason is that the two methods for determining delta differ.
+
 *******************************************************************************/
 
 #endif //ndef __Tartu_Inf_Decomp__infdecomp_h__
