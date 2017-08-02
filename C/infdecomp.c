@@ -1,5 +1,5 @@
 // File:    Tartu_Information_Decomposition/infdecomp.c
-// Author:  Dirk Oliver Theis, Abdullah Makkeh http://theory.cs.ut.ee/
+// Author:  Dirk Oliver Theis http://theory.cs.ut.ee/
 //
 // Lang:    GNU C 11
 // Doc:     in-code
@@ -18,11 +18,6 @@
 #include "infdecomp_p.h"
 #include <math.h>
 #include <stdlib.h>
-
-struct TID_Global_Stuff TID_global_stuff = {
-     .negative_probability = -1.e-5,
-     .probability_gtr_1    = 1.00001
-};
 
 // ****************************************************
 // M a r g i n a l    E q u a t i o n s    S t u f f
