@@ -1,8 +1,0 @@
-# myipm.jl
-module MyIPM
-export ipm
-
-type MyIPM_Results{FLOAT}
-end
-
-function ipm{FLOAT}(e::My_Eval, dummy::FLOAT)

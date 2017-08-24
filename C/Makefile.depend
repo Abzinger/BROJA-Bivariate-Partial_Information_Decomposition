@@ -1,6 +1,0 @@
-
-# DO NOT DELETE
-
-infdecomp.o: infdecomp_p.h infdecomp.h /usr/include/math.h
-infdecomp.o: /usr/include/features.h /usr/include/stdc-predef.h
-infdecomp.o: /usr/include/stdlib.h /usr/include/alloca.h
