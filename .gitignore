@@ -1,3 +1,10 @@
+# Emacs
+*~
+
+# Stuff
+*.log
+*.csv
+
 # Object files
 *.o
 *.ko
