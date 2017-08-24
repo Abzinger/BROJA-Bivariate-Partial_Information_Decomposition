@@ -1,0 +1,144 @@
+using MathProgBase
+
+type My_Eval <: MathProgBase.AbstractNLPEvaluator
+    n_x     :: Int32
+    n_y     :: Int32
+    n_z     :: Int32
+
+    varidx  :: Array{Int32,3} # 0 if variable not present; otherwise idx of var
+    xyz     :: Vector{Tuple{Int32,Int32,Int32}} # xyz-triple of varidx
+
+    eqidx   :: Dict{ Tuple{String,Int32,Int32},Int32} # first idx is "xy" or "xz"
+    mr_eq   :: Vector{ Tuple{String,Int32,Int32} }    # ("xy",x,y) / ("yz",y,z) of an eqn
+
+    marg_xy :: Array{Float64,2}
+    marg_xz :: Array{Float64,2}
+    marg_x  :: Array{Float64,1}
+
+    n     :: Int32         # number of variables
+    m     :: Int32         # number of marginal equations
+
+
+    rhs   :: Vector{Float64} # m-vector
+    Gt    :: SparseMatrixCSC{Float64,Int32} # G^T n x m; transpose of constraint matrix
+    Gt_K  :: Vector{Int32} # findn()-info of G^T: rows
+    Gt_L  :: Vector{Int32} # findn()-info of G^T: columns
+
+    TmpFloat       :: DataType
+    bigfloat_nbits :: Int32
+
+    My_Eval() = new(....,  [],spzeros(0,0),[],[],BigFloat,256)
+end
+
+function create_My_Eval(q::Array{Float64,3})
+    if ndims(q) != 3
+        print("Need 3 dimensions in q\n");
+        return;
+    end
+    const n_x::Int32 = size(q,1);
+    const n_y::Int32 = size(q,2);
+    const n_z::Int32 = size(q,3);
+
+    varidx::Array{Int32,3} = zeros(Bool,size(q));
+
+    # Create marginals
+    marg_xy::Array{Float64,2} = zeros(n_x,n_y)
+    marg_xz::Array{Float64,2} = zeros(n_x,n_z)
+    marg_x::Array{Float64,1}  = zeros(n_x)
+    for x in 1:n_x
+        for y in 1:n_y
+            for z in 1:n_z
+                marg_xy[x,y] += q[x,y,z]
+                marg_xy[x,z] += q[x,y,z]
+                marg_x[x]    += q[x,y,z]
+            end
+        end
+    end
+
+    # Find the variables
+    n:In32 = 0
+    for x in 1:n_x
+        for y in 1:n_y
+            for z in 1:n_z
+                if marg_xy > 0  &&  marg_xz > 0
+                    n += 1
+                    varidx[x,y,z] = n
+                    xyz[n]        = (x,y,z)
+                else
+                    varidx[x,y,z] = 0
+                end#if
+            end
+        end
+    end
+
+    # Find the equations
+    m:Int32 = 0
+
+    for x in 1:n_x
+        for y in 1:n_y
+            if marg_xy[x,y] > 0:
+                m += 1
+                eqidx["xy",x,y] = m
+                mr_eq[m]        = ("xy",x,y)
+            else
+                eqidx["xy",x,y] = 0
+            end#if
+        end
+        for z in 1:n_z
+            if marg_xz[x,z] > 0:
+                m += 1
+                eqidx["xz",x,z] = m
+                mr_eq[m]        = ("xz",x,z)
+            else
+                eqidx["xz",x,z] = 0
+            end#if
+        end
+    end #for x
+
+    rhs::Vector{Float64} = zeros(m)
+    for k in 1:m
+        mr = mr_eq[k]
+        if mr[1] == "xy"
+            rhs[k] = marg_xy[ mr[2], mr[3] ]
+        elseif mr[1]=="xz"
+            rhs[k] = marg_xz[ mr[2], mr[3] ]
+        else
+            print("Fuck! Bug!")
+            return;
+        end
+    end #for all marg equations
+
+    denseGt :: Array{Float64,2} = zeros(m,n)
+    for l in 1:n
+        (x,y,z) = xyz[l]
+        for k in 1:m
+            mr = mr_eq[k]
+            if mr[1] == "xy"
+                xy = mr[2:3]
+                if xy[1]==x && xy[2]==y
+                    denseG[l][k] = 1.
+                end
+            elseif mr[1]=="xz"
+                xz = mr[2:3]
+                if xz[1]==x && xz[2]==z
+                    denseG[l][k] = 1.
+                end
+            else
+                print("Fuck! Bug!")
+                return;
+            end
+        end
+    end
+
+    Gt::SparseMatrixCSC{Float64,Int32} = sparse(denseGt)
+    Gt_K::Vector{Int32}
+    Gt_L::Vector{Int32}
+    (Gt_k,Gt_L) = findn(Gt)
+
+    TmpFloat       :: DataType  = BigFloat
+    bigfloat_nbits :: Int32     = 256
+
+
+    return My_Eval(n_x,n_y,n_z,hasvar,marg_xy,marg_xz,marg_x, n,m, rhs, Gt,Gt_K,Gt_L,  TmpFloat,bigfloat_nbits)
+    ;
+end

@@ -1,0 +1,24 @@
+
+
+denom(Σinv::Matrix{Float64}) :: BigFloat  =  sqrt( det(Σinv) / (2*π)^3 )
+function gaussint(Σinv::Matrix{Float64}, x::Vector{Float64}) :: BigFloat
+    t = -BigFloat( (x'*Σinv*x)[1] )/2
+    return exp(t)
+    ;
+end
+
+function average_gaussint(Σinv::Matrix{Float64}, n::Int, a::Vector{Float64}, b::Vector{Float64}) :: BigFloat
+    d = denom(Σinv)
+    s = 1/n
+    avg = BigFloat(0)
+    for x1 in a[1]:s:b[1]
+        for x2 in a[2]:s:b[2]
+            for x3 in a[3]:s:b[3]
+                x = Vector{Float64}([x1,x2,x3])
+                avg += gaussint(Σinv, x) / d / n^3
+            end
+        end
+    end
+    return avg
+    ;
+end

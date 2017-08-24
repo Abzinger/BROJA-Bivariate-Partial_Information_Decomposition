@@ -23,10 +23,10 @@ struct TID_Parameters
      double probability_gtr_1;     // init'd to    1.00001
 };
 
-#define TID_Parameters_Default = (struct TID_Parameters){
-     .negative_probability = -1.e-5,
-     .probability_gtr_1    = 1.00001
-};
+#define TID_Parameters_Default ((struct TID_Parameters){ \
+                    .negative_probability = -1.e-5,      \
+                    .probability_gtr_1 = 1.00001         \
+                    } )
 
 
 typedef enum   TID_Error

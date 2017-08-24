@@ -1,7 +1,7 @@
 // File:    Tartu_Information_Decomposition/infdecomp.c
 // Author:  Dirk Oliver Theis http://theory.cs.ut.ee/
 //
-// Lang:    GNU C 11
+// Lang:    *GNU* C 11  [I mean it!]
 // Doc:     in-code
 // ***************************************************
 //
@@ -397,6 +397,450 @@ void hess(const struct VarData vars, const double q[], double H[])
           for(int xyz=begin_yz; xyz<end_yz; ++xyz) for(int uyz=begin_yz; uyz<xyz; ++uyz)    H[idx ++]  = -1/q_ast;
      }//^ for yz
 }//^ grad()
+
+
+// ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+// ******************************************
+// M o s e k    I n t e r f a c e
+//- - - - - - - - - - - - - - - - - - - - - -
+
+#include <mosek.h>
+
+static int MSKAPI log__callback();
+static int MSKAPI structure__callback();
+static int MSKAPI evaluation__callback();
+
+// This is near copy-paste from the Mosek documentation:
+MSKint32t MSKAPI log_callback(MSKtask_t            const mosek_task,
+                              MSKuserhandle_t      const my_handle,
+                              MSKcallbackcodee     const caller,
+                              const MSKrealt     * const douinf,
+                              const MSKint32t    * const intinf,
+                              const MSKint64t    * const lintinf)
+{
+     struct TID const * p_tid = (struct TID *)mosek_task;
+
+     const char *txt;
+
+     switch (caller) {
+
+     case MSK_CALLBACK_BEGIN_ROOT_CUTGEN:
+          txt = "root cut generation is started.";
+          break;
+     case MSK_CALLBACK_IM_ROOT_CUTGEN:
+          txt = "within root cut generation at an intermediate stage.";
+          break;
+     case MSK_CALLBACK_END_ROOT_CUTGEN:
+          txt = "root cut generation is is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_OPTIMIZER:
+          txt = "the optimizer is started.";
+          break;
+     case MSK_CALLBACK_END_OPTIMIZER:
+          txt = "the optimizer is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_PRESOLVE:
+          txt = "the presolve is started.";
+          break;
+     case MSK_CALLBACK_UPDATE_PRESOLVE:
+          txt = "within the presolve procedure.";
+          break;
+     case MSK_CALLBACK_IM_PRESOLVE:
+          txt = "within the presolve procedure at an intermediate stage.";
+          break;
+     case MSK_CALLBACK_END_PRESOLVE:
+          txt = "the presolve is completed.";
+          break;
+     case MSK_CALLBACK_BEGIN_INTPNT:
+          txt = "the interior-point optimizer is started.";
+          break;
+     case MSK_CALLBACK_INTPNT:
+          txt = "within the interior-point optimizer after the information database has been updated.";
+          break;
+     case MSK_CALLBACK_IM_INTPNT:
+          txt = "at an intermediate stage within the interior-point optimizer where the information database has not been updated.";
+          break;
+     case MSK_CALLBACK_END_INTPNT:
+          txt = "the interior-point optimizer is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_CONIC:
+          txt = "the conic optimizer is started.";
+          break;
+     case MSK_CALLBACK_CONIC:
+          txt = "within the conic optimizer after the information database has been updated.";
+          break;
+     case MSK_CALLBACK_IM_CONIC:
+          txt = "at an intermediate stage within the conic optimizer where the information database has not been updated.";
+          break;
+     case MSK_CALLBACK_END_CONIC:
+          txt = "the conic optimizer is terminated.";
+          break;
+     case MSK_CALLBACK_PRIMAL_SIMPLEX:
+          txt = "within the primal simplex optimizer.";
+          break;
+     case MSK_CALLBACK_DUAL_SIMPLEX:
+          txt = "within the dual simplex optimizer.";
+          break;
+     case MSK_CALLBACK_BEGIN_BI:
+          txt = "The basis identification procedure has been started.";
+          break;
+     case MSK_CALLBACK_IM_BI:
+          txt = "within the basis identification procedure at an intermediate point.";
+          break;
+     case MSK_CALLBACK_END_BI:
+          txt = "the basis identification procedure is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_PRIMAL_BI:
+          txt = "within the basis identification procedure when the primal phase is started.";
+          break;
+     case MSK_CALLBACK_IM_PRIMAL_BI:
+          txt = "within the basis identification procedure at an intermediate point in the primal phase.";
+          break;
+     case MSK_CALLBACK_UPDATE_PRIMAL_BI:
+          txt = "within the basis identification procedure at an intermediate point in the primal phase.";
+          break;
+     case MSK_CALLBACK_END_PRIMAL_BI:
+          txt = "within the basis identification procedure when the primal phase is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_DUAL_BI:
+          txt = "within the basis identification procedure when the dual phase is started.";
+          break;
+     case MSK_CALLBACK_IM_DUAL_BI:
+          txt = "within the basis identification procedure at an intermediate point in the dual phase.";
+          break;
+     case MSK_CALLBACK_UPDATE_DUAL_BI:
+          txt = "within the basis identification procedure at an intermediate point in the dual phase.";
+          break;
+     case MSK_CALLBACK_END_DUAL_BI:
+          txt = "within the basis identification procedure when the dual phase is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_SIMPLEX_BI:
+          txt = "within the basis identification procedure when the simplex clean-up phase is started.";
+          break;
+     case MSK_CALLBACK_IM_SIMPLEX_BI:
+          txt = "within the basis identification procedure at an intermediate point in the simplex clean-up phase. The frequency of the call-backs is controlled by the MSK_IPAR_LOG_SIM_FREQ parameter.";
+          break;
+     case MSK_CALLBACK_BEGIN_PRIMAL_SIMPLEX_BI:
+          txt = "within the basis identification procedure when the primal simplex clean-up phase is started.";
+          break;
+     case MSK_CALLBACK_UPDATE_PRIMAL_SIMPLEX_BI:
+          txt = "within the basis identification procedure at an intermediate point in the primal simplex clean-up phase. The frequency of the call-backs is controlled by the MSK_IPAR_LOG_SIM_FREQ parameter.";
+          break;
+     case MSK_CALLBACK_END_PRIMAL_SIMPLEX_BI:
+          txt = "within the basis identification procedure when the primal clean-up phase is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_PRIMAL_DUAL_SIMPLEX_BI:
+          txt = "within the basis identification procedure when the primal-dual simplex clean-up phase is started.";
+          break;
+     case MSK_CALLBACK_UPDATE_PRIMAL_DUAL_SIMPLEX_BI:
+          txt = "within the basis identification procedure at an intermediate point in the primal-dual simplex clean-up phase. The frequency of the call-backs is controlled by the MSK_IPAR_LOG_SIM_FREQ parameter.";
+          break;
+     case MSK_CALLBACK_END_PRIMAL_DUAL_SIMPLEX_BI:
+          txt = "within the basis identification procedure when the primal-dual clean-up phase is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_DUAL_SIMPLEX_BI:
+          txt = "within the basis identification procedure when the dual simplex clean-up phase is started.";
+          break;
+     case MSK_CALLBACK_UPDATE_DUAL_SIMPLEX_BI:
+          txt = "within the basis identification procedure at an intermediate point in the dual simplex clean-up phase. The frequency of the call-backs is controlled by the MSK_IPAR_LOG_SIM_FREQ parameter.";
+          break;
+     case MSK_CALLBACK_END_DUAL_SIMPLEX_BI:
+          txt = "within the basis identification procedure when the dual clean-up phase is terminated.";
+          break;
+     case MSK_CALLBACK_END_SIMPLEX_BI:
+          txt = "within the basis identification procedure when the simplex clean-up phase is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_MIO:
+          txt = "the mixed-integer optimizer is started.";
+          break;
+     case MSK_CALLBACK_IM_MIO:
+          txt = "at an intermediate point in the mixed-integer optimizer.";
+          break;
+     case MSK_CALLBACK_NEW_INT_MIO:
+          txt = "after a new integer solution has been located by the mixed-integer optimizer.";
+          break;
+     case MSK_CALLBACK_END_MIO:
+          txt = "the mixed-integer optimizer is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_SIMPLEX:
+          txt = "the simplex optimizer is started.";
+          break;
+     case MSK_CALLBACK_BEGIN_DUAL_SIMPLEX:
+          txt = "the dual simplex optimizer started.";
+          break;
+     case MSK_CALLBACK_IM_DUAL_SIMPLEX:
+          txt = "at an intermediate point in the dual simplex optimizer.";
+          break;
+     case MSK_CALLBACK_UPDATE_DUAL_SIMPLEX:
+          txt = "in the dual simplex optimizer.";
+          break;
+     case MSK_CALLBACK_END_DUAL_SIMPLEX:
+          txt = "the dual simplex optimizer is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_PRIMAL_SIMPLEX:
+          txt = "the primal simplex optimizer is started.";
+          break;
+     case MSK_CALLBACK_IM_PRIMAL_SIMPLEX:
+          txt = "at an intermediate point in the primal simplex optimizer.";
+          break;
+     case MSK_CALLBACK_UPDATE_PRIMAL_SIMPLEX:
+          txt = "in the primal simplex optimizer.";
+          break;
+     case MSK_CALLBACK_END_PRIMAL_SIMPLEX:
+          txt = "the primal simplex optimizer is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_PRIMAL_DUAL_SIMPLEX:
+          txt = "the primal-dual simplex optimizer is started.";
+          break;
+     case MSK_CALLBACK_IM_PRIMAL_DUAL_SIMPLEX:
+          txt = "at an intermediate point in the primal-dual simplex optimizer.";
+          break;
+     case MSK_CALLBACK_UPDATE_PRIMAL_DUAL_SIMPLEX:
+          txt = "in the primal-dual simplex optimizer.";
+          break;
+     case MSK_CALLBACK_END_PRIMAL_DUAL_SIMPLEX:
+          txt = "the primal-dual simplex optimizer is terminated.";
+          break;
+     case MSK_CALLBACK_END_SIMPLEX:
+          txt = "the simplex optimizer is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_INFEAS_ANA:
+          txt = "the infeasibility analyzer is started.";
+          break;
+     case MSK_CALLBACK_END_INFEAS_ANA:
+          txt = "the infeasibility analyzer is terminated.";
+          break;
+     case MSK_CALLBACK_IM_PRIMAL_SENSIVITY:
+          txt = "at an intermediate stage of the primal sensitivity analysis.";
+          break;
+     case MSK_CALLBACK_IM_DUAL_SENSIVITY:
+          txt = "at an intermediate stage of the dual sensitivity analysis.";
+          break;
+     case MSK_CALLBACK_IM_MIO_INTPNT:
+          txt = "at an intermediate point in the mixed-integer optimizer while running the interior-point optimizer.";
+          break;
+     case MSK_CALLBACK_IM_MIO_PRIMAL_SIMPLEX:
+          txt = "at an intermediate point in the mixed-integer optimizer while running the primal simplex optimizer.";
+          break;
+     case MSK_CALLBACK_IM_MIO_DUAL_SIMPLEX:
+          txt = "at an intermediate point in the mixed-integer optimizer while running the dual simplex optimizer.";
+          break;
+     case MSK_CALLBACK_BEGIN_PRIMAL_SETUP_BI:
+          txt = "the primal BI setup is started.";
+          break;
+     case MSK_CALLBACK_END_PRIMAL_SETUP_BI:
+          txt = "the primal BI setup is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_DUAL_SETUP_BI:
+          txt = "the dual BI phase is started.";
+          break;
+     case MSK_CALLBACK_END_DUAL_SETUP_BI:
+          txt = "the dual BI phase is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_PRIMAL_SENSITIVITY:
+          txt = "Primal sensitivity analysis is started.";
+          break;
+     case MSK_CALLBACK_END_PRIMAL_SENSITIVITY:
+          txt = "Primal sensitivity analysis is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_DUAL_SENSITIVITY:
+          txt = "Dual sensitivity analysis is started.";
+          break;
+     case MSK_CALLBACK_END_DUAL_SENSITIVITY:
+          txt = "Dual sensitivity analysis is terminated.";
+          break;
+     case MSK_CALLBACK_BEGIN_LICENSE_WAIT:
+          txt = "Begin waiting for license.";
+          break;
+     case MSK_CALLBACK_END_LICENSE_WAIT:
+          txt = "End waiting for license.";
+          break;
+     case MSK_CALLBACK_IM_LICENSE_WAIT:
+          txt = "MOSEK is waiting for a license.";
+          break;
+     case MSK_CALLBACK_BEGIN_QCQO_REFORMULATE:
+          txt = "Begin QCQO reformulation.";
+          break;
+     case MSK_CALLBACK_END_QCQO_REFORMULATE:
+          txt = "End QCQO reformulation.";
+          break;
+     case MSK_CALLBACK_IM_QO_REFORMULATE:
+          txt = "at an intermediate stage of the conic quadratic reformulation.";
+          break;
+     case MSK_CALLBACK_BEGIN_TO_CONIC:
+          txt = "Begin conic reformulation.";
+          break;
+     case MSK_CALLBACK_END_TO_CONIC:
+          txt = "End conic reformulation.";
+          break;
+     case MSK_CALLBACK_BEGIN_FULL_CONVEXITY_CHECK:
+          txt = "Begin full convexity check.";
+          break;
+     case MSK_CALLBACK_END_FULL_CONVEXITY_CHECK:
+          txt = "End full convexity check.";
+          break;
+     case MSK_CALLBACK_IM_FULL_CONVEXITY_CHECK:
+          txt = "at an intermediate stage of the full convexity check.";
+          break;
+     case MSK_CALLBACK_BEGIN_PRIMAL_REPAIR:
+          txt = "Begin primal feasibility repair.";
+          break;
+     case MSK_CALLBACK_END_PRIMAL_REPAIR:
+          txt = "End primal feasibility repair.";
+          break;
+     case MSK_CALLBACK_BEGIN_READ:
+          txt = "MOSEK has started reading a problem file.";
+          break;
+     case MSK_CALLBACK_IM_READ:
+          txt = "Intermediate stage in reading.";
+          break;
+     case MSK_CALLBACK_END_READ:
+          txt = "MOSEK has finished reading a problem file.";
+          break;
+     case MSK_CALLBACK_BEGIN_WRITE:
+          txt = "MOSEK has started writing a problem file.";
+          break;
+     case MSK_CALLBACK_END_WRITE:
+          txt = "MOSEK has finished writing a problem file.";
+          break;
+     case MSK_CALLBACK_READ_OPF_SECTION:
+          txt = "A chunk of QQ non-zeros has been read from a problem file.";
+          break;
+     case MSK_CALLBACK_IM_LU:
+          txt = "within the LU factorization procedure at an intermediate point.";
+          break;
+     case MSK_CALLBACK_IM_ORDER:
+          txt = "within the matrix ordering procedure at an intermediate point.";
+          break;
+     case MSK_CALLBACK_IM_SIMPLEX:
+          txt = "within the simplex optimizer at an intermediate point.";
+          break;
+     case MSK_CALLBACK_READ_OPF:
+          txt = "OPF reader.";
+          break;
+     case MSK_CALLBACK_WRITE_OPF:
+          txt = "OPF writer.";
+          break;
+     case MSK_CALLBACK_SOLVING_REMOTE:
+          txt = " the task is being solved on a remote server.";
+          break;
+     default:
+          txt = "Unknown caller.";
+     }
+
+
+     ----------------------------------------------------------------------------------------------------------------------------------------------------
+
+          switch ( caller ) {
+
+          case MSK_CALLBACK_BEGIN_INTPNT:
+               printf("Starting interior-point optimizer\n");
+
+               break;
+
+          case MSK_CALLBACK_INTPNT:
+               printf("Iterations: %-3d  Time: %6.2f(%.2f)  ",
+                      intinf[MSK_IINF_INTPNT_ITER],
+                      douinf[MSK_DINF_OPTIMIZER_TIME],
+                      douinf[MSK_DINF_INTPNT_TIME]);
+
+
+               printf("Primal obj.: %-18.6e  Dual obj.: %-18.6e\n",
+                      douinf[MSK_DINF_INTPNT_PRIMAL_OBJ],
+                      douinf[MSK_DINF_INTPNT_DUAL_OBJ]);
+
+               break;
+
+          case MSK_CALLBACK_END_INTPNT:
+               printf("Interior-point optimizer finished.\n");
+
+               break;
+
+          case MSK_CALLBACK_BEGIN_PRIMAL_SIMPLEX:
+               printf("Primal simplex optimizer started.\n");
+
+               break;
+
+          case MSK_CALLBACK_UPDATE_PRIMAL_SIMPLEX:
+               printf("Iterations: %-3d  ",
+                      intinf[MSK_IINF_SIM_PRIMAL_ITER]);
+
+               printf("  Elapsed time: %6.2f(%.2f)\n",
+                      douinf[MSK_DINF_OPTIMIZER_TIME],
+                      douinf[MSK_DINF_SIM_TIME]);
+
+               printf("Obj.: %-18.6e\n",
+                      douinf[MSK_DINF_SIM_OBJ]);
+
+               break;
+
+          case MSK_CALLBACK_END_PRIMAL_SIMPLEX:
+               printf("Primal simplex optimizer finished.\n");
+
+               break;
+
+          case MSK_CALLBACK_BEGIN_DUAL_SIMPLEX:
+               printf("Dual simplex optimizer started.\n");
+
+               break;
+
+          case MSK_CALLBACK_UPDATE_DUAL_SIMPLEX:
+               printf("Iterations: %-3d  ",intinf[MSK_IINF_SIM_DUAL_ITER]);
+
+               printf("  Elapsed time: %6.2f(%.2f)\n",
+                      douinf[MSK_DINF_OPTIMIZER_TIME],
+                      douinf[MSK_DINF_SIM_TIME]);
+
+               printf("Obj.: %-18.6e\n",douinf[MSK_DINF_SIM_OBJ]);
+
+               break;
+
+          case MSK_CALLBACK_END_DUAL_SIMPLEX:
+               printf("Dual simplex optimizer finished.\n");
+
+               break;
+
+          case MSK_CALLBACK_BEGIN_BI:
+               printf("Basis identification started.\n");
+
+               break;
+
+          case MSK_CALLBACK_END_BI:
+               printf("Basis identification finished.\n");
+
+               break;
+
+          default:
+               printf("Unknown caller.\n");
+          }
+
+
+
+     // return 1 to terminate.
+     return 0;
+}//^ log_callback()
+
+
+
+
+
+// ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+
+#define TID_Solution_Info__BAD ((struct TID_Solution_Info){ \
+                    max_viol_primal_nonneg_ieq = -1.,       \
+                    max_viol_primal_marg_eqn = -1.,         \
+                    max_viol_dual_ieq = -1.,                \
+                    max_viol_dual_eqn = -1.,                \
+                    dist_to_boundary = -1.,                 \
+                    screwness = -1.,                        \
+                    delta = -1.                             \
+                    } )
+
+
+
+
+
 
 // ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 //EOF Tartu_Information_Decomposition/infdecomp.c
