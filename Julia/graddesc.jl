@@ -1,13 +1,28 @@
 # graddesc.jl
 module GradDesc
+
+using InfDecomp_Base
+
+
+
+
+
+struct Solution_Stats
+    optimum     :: Float64
+    q           :: Vector{Float64}
+    time        :: Float64
+end
+
+
+
 export GD_Params, GD_Results, prj_graddesc, fw_graddesc
 
 
-type IPGD_Params
+struct IPGD_Params
     ...
 end
 
-type IPGD_Results{FLOAT}
+struct IPGD_Results{FLOAT}
     ...
 end
 
@@ -30,7 +45,7 @@ f(q::FLOAT) :: FLOAT = -InfDecomp.condEntropy(e,q,FLOAT())
 
 # Projection
 
-type Projector_Data{FLOAT}
+struct Projector_Data{FLOAT}
     ...
 end
 
