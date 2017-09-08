@@ -3,165 +3,125 @@ module GradDesc
 
 using InfDecomp_Base
 
-
-
-
+export my_gradient_descent
 
 struct Solution_Stats
     optimum     :: Float64
     q           :: Vector{Float64}
+    nm_pr∇      :: Float64
+    max_η       :: Float64
+    status      :: Symbol  # can be one of   :grad0 :step0 :iter
     time        :: Float64
 end
 
 
+# Compute the projection operator onto the image of the matrix B.
+# Uses SVD, where singular values less than `eps` are considered 0
+# Requires that B be matrix with AT LEAST AS MANY ROWS AS COLUMNS !!!!
+function compute_projector( B :: AbstractMatrix{Float64}, eps::Float64=1.e-10 ) :: Matrix{Float64}
+    (m,n) = size(B)
+    @assert m >= n "compute_projector(B) requires that B has at least as many rows as columns"
 
-export GD_Params, GD_Results, prj_graddesc, fw_graddesc
+    # SVD
+    F = LinAlg.svdfact(B)
+    NZ = [ j for j in 1:n if F[:S][j] > eps ]
 
+    # partial isometry:
+    U = view(F[:U], 1:m, NZ)
 
-struct IPGD_Params
-    ...
-end
+    P = PI*PI'
 
-struct IPGD_Results{FLOAT}
-    ...
-end
+    @assert P*P≈P "compute_projector(B): Something went wrong -- P^2 != P :("
+    @assert P'≈P  "compute_projector(B): Something went wrong -- P^T != P :("
 
-using InfDecomp.My_Eval
-
-function GD_container{FLOAT}(e::My_Eval, param::IPGD_Params, dummy::FLOAT) :: IPGD_Results{FLOAT}
-    oldprc = precision(BigFloat)
-    setprecision(BigFloat,e.bigfloat_nbits)
-
-    r = interior_projected_gdescent(e,param, dummy)
-
-    setprecision(BigFloat,oldprc)
-
-    return r;
-end
-
-# Function oracles
-
-f(q::FLOAT) :: FLOAT = -InfDecomp.condEntropy(e,q,FLOAT())
-
-# Projection
-
-struct Projector_Data{FLOAT}
-    ...
-end
-
-function setup_prj!{FLOAT}(prjdata::Projector_Data{FLOAT}, e::My_Eval) :: Void
-
-    ...
-
-    return nothing;
-end
-
-function prj!{FLOAT}(y::Vector{FLOAT}, x::Vector{FLOAT}, prjd::Projector_Data{FLOAT}) :: Void
-
-    ...
-
-    return nothing;
-end
+    return P
+end #^ compute_projector()
 
 
+function initial_interior_point(e::My_Eval, q::Vector{Float64}) :: Void
+    for x = 1:e.n_x
+        p_x = 0.
+        for y = 1:e.n_y
+            for z = 1:e.n_z
+                p_x += e.prb_xyz[x,y,z]
+            end #^ for z
+        end #^ for y
 
-function interior_projected_gdescent{FLOAT}(e::My_Eval, param::IPGD_Params, dummy::FLOAT) :: IPGD_Results{FLOAT}
-
-    local prjdata :: Projector_DATA{FLOAT}
-    setup_prj!(prjdata, e,param)
-
-    local q   = Vector{FLOAT}( Ones(e.n)  )  # current feasible solution
-    local ∇   = Vector{FLOAT}( zeros(e.n) )  # gradient
-    local pr∇ = Vector{FLOAT}( zeros(e.n) )  # projected gradient
-    local x   = Vector{FLOAT}( zeros(e.n) )  # q + pr∇
-    local δ   = FLOAT(1)/(e.n_x*100)         # distance from boundary
-    local η   = δ                            # step length
-
-    local terminate::Bool
-
-    local iter = 1
-    while (true)
-        print(iter,":  f=",f(q))
-
-        # Compute gradient
-        InfDecomp.∇f(e, ∇, q, FLOAT(0))
-
-        # Project gradient
-        prj!(pr∇, ∇, prjdata)
-
-        # Check if projected gradient is nearly 0 (= terminate)
-        nm_1 = norm(pr∇,1.)
-        nm_2 = norm(pr∇,2.)
-        nm_∞ = norm(pr∇,Inf)
-
-        print(" |pr∇|_1=",nm_1," |pr∇|_2=",nm_2," |pr∇|_∞=",nm_∞)
-
-        if nm_infty > 1.e100
-
-            # Find intersection with boundary
-            local γ = FLOAT(1.e300) # init to infty
-            for y = 1:e.n_y
-                for z = 1:e.n_z
-                    # make marginal q(*yz) and pr∇(*yz)
-                    Q_yz::FLOAT   = FLOAT(0)
-                    pr∇_yz::FLOAT = FLOAT(0)
-                    for x = 1:e.n_x
-                        i = e.varidx[x,y,z]
-                        if i>0
-                            Q_yz   += q[i]
-                            pr∇_yz += ∇[i]
-                        end
-                    end
-                    # check them
-                    for x = 1:e.n_x
-                        i = e.varidx[x,y,z]
-                        if i>0
-                            local β = pr∇[i] - δ*pr∇_yz
-                            if β<0
-                                γ = min( γ ,   -( q[i] - δ*Q_yz )/β )
-                            end
-                        end
-                    end
-                end# for y
-            end# for x
-
-
-            if η > γ
-                # we're fine, make the step of length η
-                print(" η=",η," > γ=",γ)
-                q .+= η .* pr∇
-            elseif
-                # make a step of length γ; update boundary distance and default step length
-                print(" η=",η," > γ=",γ)
-                q .+= γ .* pr∇
-                δ /= 2
-                η /= 4
-                print(" new η=",η,", δ=",δ)
-
-                if δ < 1.e300
-                    print(" δ TINY")
-                    terminate = true
-            end
-        else
-            print(" ORTHOGONAL GRADIENT")
-            terminate = true
-        end
-
-        if (iter > 10000)
-            print(" MAX ITER")
-            terminate = true
-        end
-
-        if  terminate
-            print(" -- TERMINATE")
-        else
-            print("\n")
-        end
-    end
-
-
+        for y = 1:e.n_y
+            for z = 1:e.n_z
+                i = e.varidx[x,y,z]
+                if i>0
+                    q[i] = marg_xy[x,y] * marg_xz[x,z] / p_x
+                end #^ if ∃i
+            end #^ for z
+        end #^ for y
+    end #^ for x
     ;
 end
 
+function my_gradient_descent(e::My_Eval;
+                             max_iter        :: Int64    =1000000,
+                             eps_grad        :: Float64  =1.e-20,
+                             eps_steplength  :: Float64  =1.e-20,
+                             stepfactor      :: Float64  =.1        )   :: Solution_Stats
+    # Function for steplength
+    steplength(q::Float64, g::Float64) = (  g > 0 ?   q/g   :  Inf  )
+
+    CPUtic()
+
+    # Definitions of vectors
+    q_0  :: Vector{Float64} = zeros(e.n)  # standard interior feasible point (also initial q)
+    q    :: Vector{Float64} = zeros(e.n)  # iterate interior feasible point
+    ∇    :: Vector{Float64} = zeros(e.n)  # gradient
+    pr∇  :: Vector{Float64} = zeros(e.n)  # projected gradient (onto tangent space)
+    P    :: Matrix{Float64} = compute_projector(e.Gt) # projection operator (onto lin space)
+
+    # initial solution
+    initial_interior_point(e,q_0)
+
+    # main loop
+    nm_pr∇ :: Float64
+    max_η  :: Float64
+    status = :iter
+
+    q .= q_0
+    for iter = 1:max_iter
+        # compute gradient
+        InfDecomp.∇f(e,∇,q,Float64(0.))
+
+        # project gradient onto tangent space
+        pr∇ .= (  P*(∇-q_0)+q_0  )
+
+        max_η  = -1.
+        nm_pr∇ = norm(pr∇)
+        if nm_pr∇ ≤ eps_grad
+            status = :grad0
+            break
+        end
+
+        # max steplength which retains feasibility
+        max_η = Inf
+        for i in 1:e.n
+            max_η = min(  max_η ,  steplength(q[i],pr∇[i])  )
+        end
+
+        # max eigenvalue of the Hessian
+        if max_η ≤ eps_steplength
+            status = :step0
+            break
+        end
+
+        @show iter nm_pr∇ max_η
+
+        q .-= (stepfactor*min(1.,max_η)) .* pr∇
+    end #^ for --- main loop
+
+    tm = CPUtoc()
+
+    println("Terminated with")
+    @show iter nm_pr∇ max_η
+
+    return Solution_Stats(-condEntropy(e,q,Float64(0.)), q, nm_pr∇, max_η, status, tm)
+end #^ my_gradient_descent()
 
 end # module

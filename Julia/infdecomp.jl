@@ -3,6 +3,7 @@ module InfDecomp
 
 using InfDecomp_Base
 using ExpCone
+using GradDesc
 
 using MathProgBase
 
@@ -608,6 +609,14 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
         stats = ExpCone.model_S(myeval,solver)
         return sd,myeval,stats
 
+    elseif mode_type == :My_GradDesc
+        stats = my_gradient_descent(myeval;
+                                    max_iter       = 1000000,
+                                    eps_grad       = 1.e-20,
+                                    eps_steplength = 1.e-20,
+                                    stepfactor     = .1)
+        return sd,myeval,stats
+
     else # not Conic Program
         const lb = constraints_lowerbounds_vec(myeval)
         const ub = constraints_upperbounds_vec(myeval)
@@ -677,7 +686,7 @@ function check_feasibility(name, model, myeval, solver) :: Solution_and_Stats
 
         fstat.var_num = MathProgBase.numvar(model)
         if status(model) ∈ [:Solve_Succeeded,:Optimal,:NearOptimal,:KnitroError,:UserLimit,:FeasibleApproximate]
-            fstat.obj_val = stats.optimum
+            # fstat.obj_val = stats.optimum
             fourtuple = information_quantities(myeval,fstat.obj_val,stats.q)
             (fstat.CI, fstat.SI, fstat.UI_Y, fstat.UI_Z) = fourtuple
 
@@ -694,6 +703,35 @@ function check_feasibility(name, model, myeval, solver) :: Solution_and_Stats
         fstat.opt_time = stats.time
 
         return fstat
+
+    elseif solver == :My_GradDesc
+        stats = model
+
+        fstat = Solution_and_Stats(name,solver, 0,0,0,0, stats.status ,  big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),0,0,0,0,0,big(0.))
+        fstat.x_sz = myeval.n_x
+        fstat.y_sz = myeval.n_y
+        fstat.z_sz = myeval.n_z
+
+        fstat.var_num = myeval.n
+        if stats.status ∈ [:grad0 :step0]
+            # fstat.obj_val = stats.optimum
+            fourtuple = information_quantities(myeval,fstat.obj_val,stats.q)
+            (fstat.CI, fstat.SI, fstat.UI_Y, fstat.UI_Z) = fourtuple
+
+            fstat.obj_val = eval_f(myeval,stats.q,Float64(0))
+
+            fstat.q_nonneg_viol = max(-minimum(stats.q),0)
+            fstat.q_min_entry   = max(minimum(stats.q),0)
+
+            equation = (stats.q'*myeval.Gt)' - myeval.rhs
+            fstat.marginals_1   = norm(equation,1)
+            fstat.marginals_2   = norm(equation,2)
+            fstat.marginals_Inf = norm(equation,Inf)
+        end
+        fstat.opt_time = stats.time
+
+        return fstat
+
     else
         fstat = Solution_and_Stats(name,solver, 0,0,0,0, status(model) ,  big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),0,0,0,0,0,big(0.))
         fstat.x_sz = myeval.n_x

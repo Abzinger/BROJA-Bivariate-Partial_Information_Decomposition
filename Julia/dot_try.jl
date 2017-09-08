@@ -118,6 +118,9 @@ function test(solver::Symbol,pdf_fn::String, w2::String, tmpFloatDatatype::DataT
         elseif solver == :SCS_S
             println("Starting conic optimization with SCS (small).")
 	    sd,myeval,model = InfDecomp.do_it(p,SCS.SCSSolver(),tmpFloatDatatype, model_type=solver)
+        elseif solver == :My_GradDesc
+            println("Starting My Gradient Descent.")
+	    sd,myeval,model = InfDecomp.do_it(p,nothing,tmpFloatDatatype, model_type=solver)
         end
 
 
