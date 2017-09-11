@@ -27,7 +27,7 @@ function compute_projector( B :: AbstractMatrix{Float64}, eps::Float64=1.e-10 ) 
     NZ = [ j for j in 1:n if F[:S][j] > eps ]
 
     # partial isometry:
-    U = view(F[:U], 1:m, NZ)
+    PI = view(F[:U], 1:m, NZ)
 
     P = PI*PI'
 
