@@ -92,7 +92,9 @@ function my_gradient_descent(e::My_Eval;
         InfDecomp_Base.∇f(e,∇,q,Float64(0.))
 
         # project gradient onto tangent space
-        pr∇ .=  P*(∇-q_0)
+        pr∇ .=  P*∇
+
+        @show pr∇
 
         max_η  = -1.
         nm_pr∇ = norm(pr∇)
