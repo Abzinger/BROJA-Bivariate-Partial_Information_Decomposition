@@ -63,6 +63,32 @@ function condEntropy{TFloat_2,TFloat}(e::My_Eval, p::Vector{TFloat_2}, dummy::TF
 end
 
 
+function ∇f{TFloat,TFloat_2}(e::My_Eval, grad::Vector{TFloat_2}, p::Vector{TFloat_2}, dummy::TFloat) :: Void
+    for y = 1:e.n_y
+        for z = 1:e.n_z
+            # make marginal P(*yz)
+            P_yz::TFloat = TFloat(0.)
+            for x = 1:e.n_x
+                i = e.varidx[x,y,z]
+                if i>0
+                    P_yz += p[i]
+                end
+            end
+            # make log-expressions  log( P(xyz) / P(*yz) )
+            for x = 1:e.n_x
+                i = e.varidx[x,y,z]
+                if i>0
+                    P_xyz::TFloat = TFloat( p[i] )
+                    grad[i] = TFloat_2(   (P_xyz ≤ 0 || P_yz ≤ 0) ?  -log(TFloat(e.n_x))  : log( P_xyz / P_yz )  )
+                end
+            end
+        end# for y
+    end# for x
+    ;
+end # ∇f()
+
+
+
 function create_My_Eval(q::Array{Float64,3}, tmpFloat::DataType, bigfloat_precision=256)
     const n_x::Int64 = size(q,1);
     const n_y::Int64 = size(q,2);

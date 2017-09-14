@@ -89,7 +89,7 @@ function my_gradient_descent(e::My_Eval;
     q .= q_0
     for iter = 1:max_iter
         # compute gradient
-        InfDecomp.∇f(e,∇,q,Float64(0.))
+        InfDecomp_Base.∇f(e,∇,q,Float64(0.))
 
         # project gradient onto tangent space
         pr∇ .= (  P*(∇-q_0)+q_0  )

@@ -91,30 +91,6 @@ end # eval_g()
 # E v a l u a t i o n :   1 s t   o r d e r
 # ------------------------------------------
 
-function ∇f{TFloat,TFloat_2}(e::My_Eval, grad::Vector{TFloat_2}, p::Vector{TFloat_2}, dummy::TFloat) :: Void
-    for y = 1:e.n_y
-        for z = 1:e.n_z
-            # make marginal P(*yz)
-            P_yz::TFloat = TFloat(0.)
-            for x = 1:e.n_x
-                i = e.varidx[x,y,z]
-                if i>0
-                    P_yz += p[i]
-                end
-            end
-            # make log-expressions  log( P(xyz) / P(*yz) )
-            for x = 1:e.n_x
-                i = e.varidx[x,y,z]
-                if i>0
-                    P_xyz::TFloat = TFloat( p[i] )
-                    grad[i] = TFloat_2(   (P_xyz ≤ 0 || P_yz ≤ 0) ?  -log(TFloat(e.n_x))  : log( P_xyz / P_yz )  )
-                end
-            end
-        end# for y
-    end# for x
-    ;
-end # ∇f()
-
 ####################################################################################################
 # G L O B A L   V A R I A B L E
 global__ill_sol   = "What?!???"
