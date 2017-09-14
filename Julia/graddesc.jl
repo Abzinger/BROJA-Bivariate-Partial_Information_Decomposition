@@ -3,6 +3,7 @@ module GradDesc
 
 using InfDecomp_Base
 
+using CPUTime
 export my_gradient_descent
 
 struct Solution_Stats

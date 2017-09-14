@@ -609,7 +609,7 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
         stats = ExpCone.model_S(myeval,solver)
         return sd,myeval,stats
 
-    elseif mode_type == :My_GradDesc
+    elseif model_type == :My_GradDesc
         stats = my_gradient_descent(myeval;
                                     max_iter       = 1000000,
                                     eps_grad       = 1.e-20,
