@@ -82,9 +82,9 @@ function my_gradient_descent(e::My_Eval;
     initial_interior_point(e,q_0)
 
     # main loop
-    nm_pr∇ :: Float64
-    max_η  :: Float64
-    status = :iter
+    local nm_pr∇ :: Float64
+    local max_η  :: Float64
+    local status = :iter
 
     q .= q_0
     for iter = 1:max_iter
@@ -92,7 +92,7 @@ function my_gradient_descent(e::My_Eval;
         InfDecomp_Base.∇f(e,∇,q,Float64(0.))
 
         # project gradient onto tangent space
-        pr∇ .= (  P*(∇-q_0)+q_0  )
+        pr∇ .=  P*(∇-q_0)
 
         max_η  = -1.
         nm_pr∇ = norm(pr∇)
