@@ -53,7 +53,7 @@ function initial_interior_point(e::My_Eval, q::Vector{Float64}) :: Void
             for z = 1:e.n_z
                 i = e.varidx[x,y,z]
                 if i>0
-                    q[i] = marg_xy[x,y] * marg_xz[x,z] / p_x
+                    q[i] = e.marg_xy[x,y] * e.marg_xz[x,z] / p_x
                 end #^ if ∃i
             end #^ for z
         end #^ for y
