@@ -33,8 +33,9 @@ function compute_projector( B :: AbstractMatrix{Float64}, eps::Float64=1.e-10 ) 
 
     P = PI*PI'
 
-    @assert P*P≈P "compute_projector(B): Something went wrong -- P^2 != P :("
-    @assert P'≈P  "compute_projector(B): Something went wrong -- P^T != P :("
+    @assert P*P≈P    "compute_projector(B): Something went wrong -- P^2 != P :("
+    @assert P'≈P     "compute_projector(B): Something went wrong -- P^T != P :("
+    @assert P*B ≈ B  "compute_projector(B): Something went wrong -- PB != B :("
 
     return P
 end #^ compute_projector()

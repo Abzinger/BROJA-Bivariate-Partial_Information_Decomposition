@@ -1,7 +1,7 @@
 using InfDecomp
 using Read_PDF
 using MathProgBase
-using Mosek
+# using Mosek
 using Ipopt
 using NLopt
 using KNITRO
@@ -81,7 +81,7 @@ function test(solver::Symbol,pdf_fn::String, w2::String, tmpFloatDatatype::DataT
         if (solver == :Mosek)
             InfDecomp.set_copy_sol_behaviour(true)
             println("Start optimization with Mosek...")
-	    sd,myeval,model = InfDecomp.do_it(p, Mosek.MosekSolver(MSK_IPAR_INTPNT_MULTI_THREAD=0, MSK_IPAR_INTPNT_MAX_ITERATIONS=500, MSK_DPAR_OPTIMIZER_MAX_TIME=time_l),tmpFloatDatatype)
+	    sd,myeval,model = InfDecomp.do_it(p, Mosek.solver(MSK_IPAR_INTPNT_MULTI_THREAD=0, MSK_IPAR_INTPNT_MAX_ITERATIONS=500, MSK_DPAR_OPTIMIZER_MAX_TIME=time_l),tmpFloatDatatype)
         elseif (solver == :Ipopt)
             InfDecomp.set_copy_sol_behaviour(false)
             println("Start optimization with Ipopt...")
