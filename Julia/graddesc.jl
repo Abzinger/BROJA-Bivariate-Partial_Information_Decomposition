@@ -117,6 +117,7 @@ function my_gradient_descent(e::My_Eval;
 
         if iter%10==1
             @show iter nm_pr∇ max_η
+            @show q
             @show pr∇
         end
 
