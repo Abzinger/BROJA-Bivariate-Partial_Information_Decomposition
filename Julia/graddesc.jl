@@ -77,7 +77,7 @@ function my_gradient_descent(e::My_Eval;
     q    :: Vector{Float64} = zeros(e.n)  # iterate interior feasible point
     ∇    :: Vector{Float64} = zeros(e.n)  # gradient
     pr∇  :: Vector{Float64} = zeros(e.n)  # projected gradient (onto tangent space)
-    P    :: Matrix{Float64} = compute_projector(e.Gt) # projection operator (onto lin space)
+    P    :: Matrix{Float64} = eye(e.n) - compute_projector(e.Gt) # projection operator (onto lin space)
 
     # initial solution
     initial_interior_point(e,q_0)
@@ -86,6 +86,7 @@ function my_gradient_descent(e::My_Eval;
     local nm_pr∇ :: Float64
     local max_η  :: Float64
     local status = :iter
+    local iter :: Int64
 
     q .= q_0
     for iter = 1:max_iter
@@ -94,8 +95,6 @@ function my_gradient_descent(e::My_Eval;
 
         # project gradient onto tangent space
         pr∇ .=  P*∇
-
-        @show pr∇
 
         max_η  = -1.
         nm_pr∇ = norm(pr∇)
@@ -116,7 +115,10 @@ function my_gradient_descent(e::My_Eval;
             break
         end
 
-        @show iter nm_pr∇ max_η
+        if iter%10==1
+            @show iter nm_pr∇ max_η
+            @show pr∇
+        end
 
         q .-= (stepfactor*min(1.,max_η)) .* pr∇
     end #^ for --- main loop
