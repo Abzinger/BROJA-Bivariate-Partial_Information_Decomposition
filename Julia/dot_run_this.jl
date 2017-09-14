@@ -1,5 +1,6 @@
 include("infdecomp_base.jl")
 include("expcone.jl")
+include("graddesc.jl")
 include("infdecomp.jl")
 include("read_pdf.jl")
 include("dot_try.jl")
