@@ -12,11 +12,21 @@ using InfDecomp
 tmpFloatDatatype = Float64
 
 
-if length(ARGS) != 2
+# if length(ARGS) != 2
+#     print(
+#     """Use w/ two arguments: solver & instance.
+#     Solver:  one of ECOS_L, Mosek, GD.
+#     instance: the name of a file in ../PDFs/Data/
+#     """)
+#     exit(1)
+# end
+
+if length(ARGS) != 3
     print(
-    """Use w/ two arguments: solver & instance.
+    """Use w/ three arguments: solver, instance, stats_file.
     Solver:  one of ECOS_L, Mosek, GD.
     instance: the name of a file in ../PDFs/Data/
+    stats_file: the name of the file the statistics should be written in.
     """)
     exit(1)
 end
@@ -38,9 +48,10 @@ end
 
 instance = ARGS[2]
 
-test(solver, "AND-0.1-10000.dens", "AND-0.1-10000.dens",  tmpFloatDatatype)
+# test(solver, "AND-0.1-10000.dens", "AND-0.1-10000.dens",  tmpFloatDatatype)
 
-stats_file = "dot_stats.csv"
+# stats_file = "dot_stats.csv"
+stats_file = ARGS[3]
 
 # open(stats_file, "a") do ffile
 #     for i in fieldnames(InfDecomp.Solution_and_Stats)
