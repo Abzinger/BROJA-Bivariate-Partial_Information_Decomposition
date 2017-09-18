@@ -21,12 +21,12 @@ end
 # Requires that B be matrix with AT LEAST AS MANY ROWS AS COLUMNS !!!!
 function compute_projector( B :: AbstractMatrix{Float64}, eps::Float64=1.e-10 ) :: Matrix{Float64}
     (m,n) = size(B)
-    @assert m >= n "compute_projector(B) requires that B has at least as many rows as columns"
+    # @assert m >= n "compute_projector(B) requires that B has at least as many rows as columns"
 
     # SVD
     B_full = full(B)
-    F = LinAlg.svdfact!(B_full)
-    NZ = [ j for j in 1:n if F[:S][j] > eps ]
+    F = LinAlg.svdfact!(B_full, thin=false)
+    NZ = [ j    for j in 1:min(m,n) if F[:S][j] > eps ]
 
     # partial isometry:
     PI = view(F[:U], 1:m, NZ)
