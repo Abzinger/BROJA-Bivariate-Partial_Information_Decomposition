@@ -661,7 +661,7 @@ function check_feasibility(name, model, myeval, solver) :: Solution_and_Stats
         fstat.z_sz = myeval.n_z
 
         fstat.var_num = MathProgBase.numvar(model)
-        if status(model) ∈ [:Solve_Succeeded,:Optimal,:NearOptimal,:KnitroError,:UserLimit,:FeasibleApproximate]
+        if status(model) ∈ [:Solve_Succeeded,:Optimal,:NearOptimal,:Suboptimal,:KnitroError,:UserLimit,:FeasibleApproximate,:Error]
             # fstat.obj_val = stats.optimum
             fourtuple = information_quantities(myeval,fstat.obj_val,stats.q)
             (fstat.CI, fstat.SI, fstat.UI_Y, fstat.UI_Z) = fourtuple
@@ -715,7 +715,7 @@ function check_feasibility(name, model, myeval, solver) :: Solution_and_Stats
         fstat.z_sz = myeval.n_z
 
         fstat.var_num = myeval.n
-        if status(model)==:Solve_Succeeded || status(model)==:Optimal || status(model)==:NearOptimal || status(model)==:SubOptimal || status(model)==:KnitroError || ( status(model)==:UserLimit && solver !=:Mosek ) || status(model)==:FeasibleApproximate 
+        if status(model)==:Solve_Succeeded || status(model)==:Optimal || status(model)==:NearOptimal || status(model)==:Suboptimal || status(model)==:KnitroError || ( status(model)==:UserLimit && solver !=:Mosek ) || status(model)==:FeasibleApproximate 
             q = Vector{Float64}( getsolution(model) )
             grad = zeros(Float64, myeval.n)
             InfDecomp.∇f(myeval, grad, q, Float64(.0))

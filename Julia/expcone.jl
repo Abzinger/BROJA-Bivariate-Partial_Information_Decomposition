@@ -109,7 +109,7 @@ function model_L(D::InfDecomp_Base.My_Eval, solver::MathProgBase.AbstractMathPro
     @show stats_time = MathProgBase.getsolvetime(m)
 
 
-    if MathProgBase.status(m) == :Optimal
+    if MathProgBase.status(m) == :Optimal || MathProgBase.status(m) == :Suboptimal || MathProgBase.status(m) == :Error
         q = Vector{Float64}(D.n)
         for xyz in 1:D.n
             q[xyz] = MathProgBase.getsolution(m)[ 3*xyz-1 ]
@@ -123,7 +123,6 @@ function model_L(D::InfDecomp_Base.My_Eval, solver::MathProgBase.AbstractMathPro
         end
 
         stats = Solution_Stats(-eval_val,MathProgBase.getobjval(m),q,stats_time,m)
-
         return stats
     else
         print("Fuck!!")
