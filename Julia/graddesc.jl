@@ -33,9 +33,8 @@ function compute_projector( B :: AbstractMatrix{Float64}, eps::Float64=1.e-10 ) 
 
     P = PI*PI'
 
-    @assert P*P≈P    "compute_projector(B): Something went wrong -- P^2 != P :("
-    @assert P'≈P     "compute_projector(B): Something went wrong -- P^T != P :("
-    @assert P*B ≈ B  "compute_projector(B): Something went wrong -- PB != B :("
+    @assert P*P≈P "compute_projector(B): Something went wrong -- P^2 != P :("
+    @assert P'≈P  "compute_projector(B): Something went wrong -- P^T != P :("
 
     return P
 end #^ compute_projector()
@@ -63,7 +62,7 @@ function initial_interior_point(e::My_Eval, q::Vector{Float64}) :: Void
 end
 
 function my_gradient_descent(e::My_Eval;
-                             max_iter        :: Int64    =1000000,
+                             max_iter        :: Int64    =1000,
                              eps_grad        :: Float64  =1.e-20,
                              eps_steplength  :: Float64  =1.e-20,
                              stepfactor      :: Float64  =.1        )   :: Solution_Stats
@@ -87,7 +86,11 @@ function my_gradient_descent(e::My_Eval;
     local max_η  :: Float64
     local status = :iter
     local iter :: Int64
-
+    local best_obj_val :: Float64 = Inf # stores the best objective value found
+    local q_best :: Vector{Float64} = zeros(e.n) # stores the best objective value corresponding input
+    local nm_pr∇_best :: Float64
+    local iter_best :: Int64
+    local max_η_best :: Float64
     q .= q_0
     for iter = 1:max_iter
         # compute gradient
@@ -95,6 +98,7 @@ function my_gradient_descent(e::My_Eval;
 
         # project gradient onto tangent space
         pr∇ .=  P*∇
+
 
         max_η  = -1.
         nm_pr∇ = norm(pr∇)
@@ -115,21 +119,35 @@ function my_gradient_descent(e::My_Eval;
             break
         end
 
+        # check if the objective function is better
+        # if so, copy the best feasible q into q_best
+        obj_val = -condEntropy(e,q,Float64(0.))
+        if obj_val <= best_obj_val
+            best_obj_val = obj_val
+            q_best .= q
+            nm_pr∇_best = nm_pr∇
+            iter_best = iter
+            max_η_best = max_η
+        end
+        
         if iter%10==1
             @show iter nm_pr∇ max_η
             @show q
             @show pr∇
+            @show obj_val
         end
+        
 
         q .-= (stepfactor*min(1.,max_η)) .* pr∇
+        
     end #^ for --- main loop
 
     tm = CPUtoc()
 
     println("Terminated with")
-    @show iter nm_pr∇ max_η
+    @show iter nm_pr∇ max_η best_obj_val q_best nm_pr∇_best iter_best
 
-    return Solution_Stats(-condEntropy(e,q,Float64(0.)), q, nm_pr∇, max_η, status, tm)
+    return Solution_Stats(best_obj_val, q_best, nm_pr∇_best, max_η_best, status, tm)
 end #^ my_gradient_descent()
 
 end # module
