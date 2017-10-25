@@ -76,7 +76,7 @@ Solution_and_Stats = InfDecomp.Solution_and_Stats
 function test(solver::Symbol,pdf_fn::String, w2::String, tmpFloatDatatype::DataType ; stats_file = "")
     p = read_p("../PDFs/Data/" * pdf_fn)
     true_p = read_p("../PDFs/Data/" * w2)
-    time_l = 10000.0
+    time_l = 1.0
     if (solver != :Cvxopt)
         if (solver == :Mosek)
             InfDecomp.set_copy_sol_behaviour(true)
@@ -118,6 +118,9 @@ function test(solver::Symbol,pdf_fn::String, w2::String, tmpFloatDatatype::DataT
         elseif solver == :SCS_S
             println("Starting conic optimization with SCS (small).")
 	    sd,myeval,model = InfDecomp.do_it(p,SCS.SCSSolver(),tmpFloatDatatype, model_type=solver)
+        elseif solver == :SCS_D
+            println("Starting conic optimization with SCS (Dual).")
+	    sd,myeval,model = InfDecomp.do_it(p,SCS.SCSSolver(),tmpFloatDatatype, model_type=solver)
         elseif solver == :My_GradDesc
             println("Starting My Gradient Descent.")
 	    sd,myeval,model = InfDecomp.do_it(p,nothing,tmpFloatDatatype, model_type=solver)
@@ -134,7 +137,7 @@ function test(solver::Symbol,pdf_fn::String, w2::String, tmpFloatDatatype::DataT
             end
         end
 
-        if solver ∈ [:ECOS_L,:SCS_L,:ECOS_S,:SCS_S]
+        if solver ∈ [:ECOS_L,:SCS_L,:ECOS_S,:SCS_S,:SCS_D]
             # Conic Program:
             # do nothing
         else

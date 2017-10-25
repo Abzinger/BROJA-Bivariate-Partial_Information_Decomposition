@@ -584,10 +584,14 @@ function do_it{T1,T2,T3}(pdf::Dict{Tuple{T1,T2,T3},Float64}, solver, tmpFloat::D
         # Conic Programming, small model
         stats = ExpCone.model_S(myeval,solver)
         return sd,myeval,stats
+    elseif model_type == :SCS_D
+        # Conic Programming, Dual problem
+        stats = ExpCone.model_D(myeval,solver)
+        return sd,myeval,stats
 
     elseif model_type == :My_GradDesc
         stats = my_gradient_descent(myeval;
-                                    max_iter       = 1000000,
+                                    max_iter       = 1000,
                                     eps_grad       = 1.e-20,
                                     eps_steplength = 1.e-20,
                                     stepfactor     = .1)
@@ -650,7 +654,7 @@ end #^ type Solution_and_Stats
 
 
 function check_feasibility(name, model, myeval, solver) :: Solution_and_Stats
-    if solver ∈ [:ECOS_L,:SCS_L,:ECOS_S,:SCS_S]
+    if solver ∈ [:ECOS_L,:SCS_L,:ECOS_S,:SCS_S,:SCS_D]
         # Conic Program
         stats = model
         model = stats.model
@@ -661,7 +665,7 @@ function check_feasibility(name, model, myeval, solver) :: Solution_and_Stats
         fstat.z_sz = myeval.n_z
 
         fstat.var_num = MathProgBase.numvar(model)
-        if status(model) ∈ [:Solve_Succeeded,:Optimal,:NearOptimal,:Suboptimal,:KnitroError,:UserLimit,:FeasibleApproximate,:Error]
+        if status(model) ∈ [:Solve_Succeeded,:Optimal,:NearOptimal,:Suboptimal,:UserLimit,:FeasibleApproximate,:Error]
             # fstat.obj_val = stats.optimum
             fourtuple = information_quantities(myeval,fstat.obj_val,stats.q)
             (fstat.CI, fstat.SI, fstat.UI_Y, fstat.UI_Z) = fourtuple
@@ -681,6 +685,7 @@ function check_feasibility(name, model, myeval, solver) :: Solution_and_Stats
         return fstat
 
     elseif solver == :My_GradDesc
+        # First order method: Projected Gradient Descent 
         stats = model
 
         fstat = Solution_and_Stats(name,solver, 0,0,0,0, stats.status ,  big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),0,0,0,0,0,big(0.))
@@ -689,7 +694,7 @@ function check_feasibility(name, model, myeval, solver) :: Solution_and_Stats
         fstat.z_sz = myeval.n_z
 
         fstat.var_num = myeval.n
-        if stats.status ∈ [:grad0 :step0]
+        if stats.status ∈ [:grad0 :step0 :iter]
             # fstat.obj_val = stats.optimum
             fourtuple = information_quantities(myeval,fstat.obj_val,stats.q)
             (fstat.CI, fstat.SI, fstat.UI_Y, fstat.UI_Z) = fourtuple
@@ -709,6 +714,7 @@ function check_feasibility(name, model, myeval, solver) :: Solution_and_Stats
         return fstat
 
     else
+        # Other solvers mainly Interior Point solvers 
         fstat = Solution_and_Stats(name,solver, 0,0,0,0, status(model) ,  big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),big(0.),0,0,0,0,0,big(0.))
         fstat.x_sz = myeval.n_x
         fstat.y_sz = myeval.n_y

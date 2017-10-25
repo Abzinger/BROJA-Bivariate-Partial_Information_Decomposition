@@ -80,7 +80,7 @@ function model_L(D::InfDecomp_Base.My_Eval, solver::MathProgBase.AbstractMathPro
             append!(Coeff, V[eq])
         end
         A = sparse(Eqn,Var,Coeff)
-
+        @show A
         return c,A,b
     end #^ make_c_b_A()
 
@@ -295,7 +295,159 @@ function model_S(D::InfDecomp_Base.My_Eval, solver::MathProgBase.AbstractMathPro
     ; #
 end #^ model_S
 
+################################################################################################################################################
+#
+###############################################################################################################################################
 
+function model_D(D::InfDecomp_Base.My_Eval, solver::MathProgBase.AbstractMathProgSolver) :: Solution_Stats
+    # min c^T v     #  min (0,b)^T (u^T,l^T)
+    # s.t.          #  s.t.
+    #               #     
+    # f(v) ∈ EXP*   #  (-1,f(u,l),-u) ∈ EXP*
+
+    local n_vars::Int = D.n + D.m        # u_{xyz} ∀ xyz; l_{xy} ∀ xy; l_{xz}  ∀ xz;
+                                         # u=i                  ;      l=D.n+i
+    local n_cons::Int = D.n*3            # u_{*yz} + ln(-u_{xyz}) + l_{xy} + l_{xz} \le -1     ; ∀ xyz
+
+    function make_c_A_b() :: Tuple{Vector{Float64},SparseMatrixCSC{Float64},Vector{Float64}}
+        local c::Vector{Float64} = zeros(n_vars)
+        local b::Vector{Float64} = zeros(n_cons)
+
+        println("the elements are ", D.xyz)
+        # fill c: (0, b^y, b^z):
+        for i = 1:D.m
+            c[ D.n + i ]  = D.rhs[i]
+        end
+
+        # fill b: (-1,0,0):
+        for xyz = 1:D.n
+            b[xyz] = -1.
+        end
+
+        #
+        # fill A
+        # ------
+
+        Constr   = Array{Int,1}()
+        Var   = Array{Int,1}()
+        Coeff = Array{Float64,1}()
+
+        # -1  EXP* ieqs:
+        for xyz = 1:D.n
+            ieqn = xyz
+            u_xyz = xyz
+            append!(Constr, ieqn)
+            append!(Var, u_xyz)
+            append!(Coeff, 0.)
+        end
+
+        # u_{*yz} + l_xy + l_xz EXP* ieqs:
+        for xyz = 1:D.n
+            (x,y,z) = D.xyz[xyz]
+            ieqn = xyz
+            # add u_{*yz}
+            for rpq = 1:D.n
+                (r,p,q) = D.xyz[rpq]
+                if (p,q) == (y,z)
+                    u_rpq = rpq
+                    println("u_rpq = ($r,$p,$q) with idx= $u_rpq")
+                    append!(Constr, D.n + ieqn)
+                    append!(Var,    u_rpq)
+                    append!(Coeff,  -1.)
+                end
+            end
+            # add l_xy
+            if D.marg_xy[x,y] > 0
+                append!(Constr, D.n + ieqn)
+                println("l_xy = ($x ,$y) with idx= ", D.n + D.eqidx["xy",x,y])
+                append!(Var,    D.n + D.eqidx["xy",x,y])
+                append!(Coeff,  -1.)
+            end
+            # add l_xz
+            # !! D.eqidx adds xz after xy. So no need
+            # to have D.n + mr_xy + D.eqidx["xz",x,z] !!
+            if D.marg_xz[x,z] > 0
+                append!(Constr, D.n + ieqn)
+                println("l_xz = ($x ,$z) with idx= ", D.n + D.eqidx["xz",x,z])
+                append!(Var,    D.n + D.eqidx["xz",x,z])
+                append!(Coeff,  -1.)
+            end
+        end
+
+        # -u_{xyz} EXP* ieqs:
+        for xyz = 1:D.n
+            ieqn = xyz
+            u_xyz = xyz
+            (x,y,z) = D.xyz[xyz]
+            append!(Constr, D.n + D.n + ieqn)
+            println("u_rpq = ($x,$y,$z) with idx= $u_xyz")
+            append!(Var, u_xyz)
+            append!(Coeff, 1.)
+        end
+
+        println("co", Constr)
+        println("va", Var)
+        println("cof", Coeff)
+        A = sparse(Constr,Var,Coeff)
+        println("dimension of A", size(A))
+        @show A
+        return c,A,b
+    end #^ make_c_b_A()
+
+
+    c,A,b = make_c_A_b()
+    
+    var_cones = [ ( :Free, 1:n_vars) ]
+    constr_cones = []
+
+    for xyz = 1:D.n
+        rqp = [ xyz, D.n + xyz, D.n + D.n + xyz ]
+        append!(constr_cones, [(:ExpDual, rqp)] )
+    end
+    println("cstr cones ", constr_cones)
+    println("var cones ", var_cones)
+    
+    m = MathProgBase.ConicModel(solver)
+    
+    MathProgBase.loadproblem!(m, c,A,b, constr_cones, var_cones)
+
+    println("!!")
+    # CPUtic()                        # TIC
+
+    MathProgBase.optimize!(m)
+
+    println("!!!")
+    # stats_time = CPUtoq()           # TOQ
+
+
+    @show MathProgBase.status(m)
+    @show stats_time = MathProgBase.getsolvetime(m)
+
+
+    if MathProgBase.status(m) == :Optimal || MathProgBase.status(m) == :Suboptimal || MathProgBase.status(m) == :Error
+        q = Vector{Float64}(D.n)
+        mu = Vector{Float64}( Mathprogbase.getdual(m) )
+    
+        for xyz in 1:D.n
+            q[xyz] = mu[ D.n + xyz ] #or mu[3*xyz - 1] depending on the order of the reduced costs
+        end
+
+        eval_val::Float64 = InfDecomp_Base.condEntropy(D,q,big(0.))
+
+        @show eval_val, MathProgBase.getobjval(m)
+        if abs(eval_val + MathProgBase.getobjval(m)) > 1.e-3
+            println("BIG DIFFERENCE IN SOLUTION VALUE!! :-( :-( :-( :-( :-( :-(\nProbably a BUG!!!!!!!!!!!!!!!!!!!!!")
+        end
+
+        stats = Solution_Stats(-eval_val,MathProgBase.getobjval(m),q,stats_time,m)
+        return stats
+    else
+        print("Fuck!!")
+        stats = Solution_Stats(999,999,[],stats_time,m)
+        return stats
+    end
+    ; #
+end #^ model_D
 
 
 end #^ module

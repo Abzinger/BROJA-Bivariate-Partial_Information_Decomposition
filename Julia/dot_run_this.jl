@@ -39,10 +39,12 @@ if     uppercase(ARGS[1]) == "ECOS_L"
     solver = :ECOS_L
 elseif uppercase(ARGS[1]) == "MOSEK"
     solver = :Mosek
+elseif uppercase(ARGS[1]) == "SCS_D"
+    solver = :SCS_D
 elseif uppercase(ARGS[1]) == "GD"
     solver = :My_GradDesc
 else
-    println("I don't recognize the solver (only ECOS_L, Mosek, GD are allowed)")
+    println("I don't recognize the solver (only ECOS_L, SCS_D, Mosek, GD are allowed)")
     exit(1)
 end
 
