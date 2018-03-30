@@ -1,11 +1,11 @@
 # BROJA-Brivariate-Partial_Information_Decomposition
-This repository provides code of the experiments performed in the paper A. Makkeh, D.O. Theis, R. Vicente, [*Bivariate Partial Information Decomposition: The Optimization Perspective*](http://www.mdpi.com/1099-4300/19/10/530) Entropy 2017, 19, 530-570;[doi:10.3390/e19100530](dx.doi.org/10.3390/e19100530).
+This repository provides code of the experiments performed in the paper A. Makkeh, D.O. Theis, R. Vicente, [*Bivariate Partial Information Decomposition: The Optimization Perspective*](http://www.mdpi.com/1099-4300/19/10/530) Entropy 2017, 19, 530-570; [doi:10.3390/e19100530](dx.doi.org/10.3390/e19100530).
 
 The repository contains different approcahes to compute the Bertschinger-Rauh-Olbrich-Jost-Ay bivariate Partial Information Decomposition, **BROJA PID** (N. Bertschinger, J. Rauh, E. Olbrich, J. Jost, N. Ay, *Quantifying Unique Information*. Entropy 2014, 16, 2161-2183; [doi:10.3390/e16042161](dx.doi.org/10.3390/e16042161).):
 
 * implementations in Julia that work together with several Julia packages, see below for details.
 
-* implementations in Python that work together with the Python package [cvxopt](https://github.com/cvxopt/cvxopt) 
+* implementations in Python that work together with the Python package [cvxopt](https://github.com/cvxopt/cvxopt).
 
 ## Julia
 The Julia implementation is build using the [MathProgBase](https://github.com/JuliaOpt/MathProgBase.jl) Julia package which is part of [JuliaOpt](https://github.com/JuliaOpt/MathProgBase.jl). 
@@ -43,5 +43,5 @@ The Julia implementation needs several packages and the user can run the file `J
 * **Second Order Optimization**
 - [CVXOPT](https://github.com/cvxopt/cvxopt)(version 1.1.9) is written and maintained by Andersen, Dahl, and Vandenberghe. It transforms the general Convex Problems with nonlinear objective function into an epigraph form, before it deploys an Interior Point method.
 
-#### Performing experiments
+## Performing Experiments
 
