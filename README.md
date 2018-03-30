@@ -10,10 +10,10 @@ The repository contains different approcahes to compute the Bertschinger-Rauh-Ol
 ## Julia
 The Julia implementation is build using the [MathProgBase](https://github.com/JuliaOpt/MathProgBase.jl) Julia package which is part of [JuliaOpt](https://github.com/JuliaOpt/MathProgBase.jl). 
 
-#### Dependencies 
+### Dependencies 
 The Julia implementation needs several packages and the user can run the file `Julia/Pkg_installer.jl` which installs all the required depedencies
 
-#### Computing BROJA PID
+### Computing BROJA PID
  The Julia impelementation used different approaches to compute *BROJA PID*.  The following is the list of the implemented approaches:
 
 * **Zero Order Optimization:**
@@ -40,8 +40,15 @@ The Julia implementation needs several packages and the user can run the file `J
   -[Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2.) "Knitro_SQP" designates their Sequential Quadratic Programming Method  
 
 ## Python 
+
+### Dependencies 
+
+### Computing BROJA PID
+
 * **Second Order Optimization**
-- [CVXOPT](https://github.com/cvxopt/cvxopt)(version 1.1.9) is written and maintained by Andersen, Dahl, and Vandenberghe. It transforms the general Convex Problems with nonlinear objective function into an epigraph form, before it deploys an Interior Point method.
+  - [CVXOPT](https://github.com/cvxopt/cvxopt)(version 1.1.9) is written and maintained by Andersen, Dahl, and Vandenberghe. It transforms the general Convex Problems with nonlinear objective function into an epigraph form, before it deploys an Interior Point method.
+  
+  - Old version adhoc implementation
 
 ## Performing Experiments
 
