@@ -11,7 +11,7 @@ The repository contains different approcahes to compute the Bertschinger-Rauh-Ol
 The Julia implementation is build using the [MathProgBase](https://github.com/JuliaOpt/MathProgBase.jl) Julia package which is part of [JuliaOpt](https://github.com/JuliaOpt/MathProgBase.jl). 
 
 #### Dependencies 
-The Julia implementation needs several packages and the user can run the file ~Julia/Pkg_installer.jl~ which installs all the required depedencies
+The Julia implementation needs several packages and the user can run the file `Julia/Pkg_installer.jl` which installs all the required depedencies
 
 #### Computing BROJA PID
  The Julia impelementation used different approaches to compute *BROJA PID*.  The following is the list of the implemented approaches:
@@ -21,7 +21,7 @@ The Julia implementation needs several packages and the user can run the file ~J
 
 * **First Order Optimization:** 
   - [SCS](https://github.com/JuliaOpt/SCS.jl)(version 1.2.7.) stands for Splitting Conic Solver. It is a numerical optimization package for solving large-scale convex cone problems.
-  - Projected Gradient descent: is our implementation of projected gradient decent in [graddesc.jl](https://github.com/Abzinger/BROJA-Bivariate-Partial_Information_Decomposition/blob/master/Julia/graddesc.jl)  
+  - Projected Gradient descent: is our implementation of projected gradient decent in `Julia/graddesc.jl`  
   - [Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2.) We refer by "Knitro_IpCG" to their IPM with conjugate gradient decesnt.
 
 * **Second Order Optimization:** 
