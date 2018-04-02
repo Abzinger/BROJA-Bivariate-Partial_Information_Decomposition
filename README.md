@@ -18,15 +18,15 @@ The Julia implementation needs several packages and the user can run the file `J
 
 * **Zero Order Optimization:**
   
-  - [Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2.) We refer by "Knitro_As" to their Active Set Method.
+  - [Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2) We refer by "Knitro_As" to their Active Set Method.
 
 * **First Order Optimization:** 
   
-  - [SCS](https://github.com/JuliaOpt/SCS.jl)(version 1.2.7.) stands for Splitting Conic Solver. It is a numerical optimization package for solving large-scale convex cone problems.
+  - [SCS](https://github.com/JuliaOpt/SCS.jl)(version 1.2.7) stands for Splitting Conic Solver. It is a numerical optimization package for solving large-scale convex cone problems.
   
   - Projected Gradient descent: is our implementation of projected gradient decent in `Julia/graddesc.jl`  
   
-  - [Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2.) We refer by "Knitro_IpCG" to their IPM with conjugate gradient decesnt.
+  - [Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2) We refer by "Knitro_IpCG" to their IPM with conjugate gradient decesnt.
 
 * **Second Order Optimization:** 
   - [*Mosek*](https://github.com/JuliaOpt/Mosek.jl)(version 8.0): is an optimization suite which offers algorithms for a vast range of convex optimization problems.
@@ -35,20 +35,28 @@ The Julia implementation needs several packages and the user can run the file `J
   
   - [ECOS](https://github.com/JuliaOpt/ECOS.jl)(version Nov 8, 2016) is a lightweigt numerical software for solving convex cone programs, using an Interior Point approach.
   
-  - [Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2.) is an optimization suite which offers four algorithms for general Convex Programming. We refer by "Knitro_Ip" to their standard Interior Point Method.  
+  - [Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2) is an optimization suite which offers four algorithms for general Convex Programming. We refer by "Knitro_Ip" to their standard Interior Point Method.  
   
-  -[Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2.) "Knitro_SQP" designates their Sequential Quadratic Programming Method  
+  - [Artelys Knitro:](https://github.com/JuliaOpt/KNITRO.jl)(version 10.2) "Knitro_SQP" designates their Sequential Quadratic Programming Method  
 
 ## Python 
 
 ### Dependencies 
+The python implementation requires the following external packages to be insatlled:
+* `numpy`
+* `cvxopt`
+* `gurobipy`
 
 ### Computing BROJA PID
 
 * **Second Order Optimization**
-  - [CVXOPT](https://github.com/cvxopt/cvxopt)(version 1.1.9) is written and maintained by Andersen, Dahl, and Vandenberghe. It transforms the general Convex Problems with nonlinear objective function into an epigraph form, before it deploys an Interior Point method.
+  - [CVXOPT](https://github.com/cvxopt/cvxopt)(version 1.1.9) is written and maintained by Andersen, Dahl, and Vandenberghe. It transforms the general Convex Problems with nonlinear objective function into an epigraph form, before it deploys an Interior Point method. We use two ways to compute PID with the aid of **cvxopt**
+   - Compute the solution of BROJA PID and use `cvxopt` as an *interior point solver*. It is implemented i `Python/cvxopt.py`
+   - Transform the problem into a *Geometric Program* and use `cvxopt` as a *geometric programming solver*. It is implemented in `Python/cvxopt_geo_solve.py`
   
-  - Old version adhoc implementation
+  
+  
+  - [Gurobi](https://www.gurobi.com/documentation/7.5/quickstart_windows/py_python_interface)(version 7.5) Dirk's adhoc implementation
 
 ## Performing Experiments
 
