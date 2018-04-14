@@ -73,6 +73,7 @@ The python implementation requires the following external packages to be insatll
  * **Generate new Instances**
  
  To generate new instances you can use the following:
+   
    -`Python/time_series`generates *noisy gate* instances  and store them into files
    ``` 
    # Example: The following command generates `XOR` gate instances 
