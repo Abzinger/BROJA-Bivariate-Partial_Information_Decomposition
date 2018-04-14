@@ -74,7 +74,7 @@ The python implementation requires the following external packages to be insatll
  
  To generate new instances you can use the following:
    
-   -`Python/time_series`generates *noisy gate* instances  and store them into files
+   - `Python/time_series` generates *noisy gate* instances  and store them into files
    ``` 
    # Example: The following command generates `XOR` gate instances 
    # with noise `0.1` 
@@ -83,9 +83,9 @@ The python implementation requires the following external packages to be insatll
    python3 time_series.py -w XOR 0.1 10000
    ```
    - `Julia/gaussians.jl` is a julia file which generates discretized gaussian instances using the following: 
-       - `random_Σ()` to generates random 3x3 covarient matrix 
-       - `make_apxgaussian_pdf(Σ,s)` discritize via the desired box persicion where *Σ* is the covariance matrix and *s* is the box size 
-       - Note that the *pdf* should be stored approperiatly for later compuations see the julia script `generate_guassians.jl` for as an example to how the user should store the *pdfs*
+         - `random_Σ()` to generates random 3x3 covarient matrix 
+         - `make_apxgaussian_pdf(Σ,s)` discritize via the desired box persicion where *Σ* is the covariance matrix and *s* is the box size 
+         - Note that the *pdf* should be stored approperiatly for later compuations see the julia script `generate_guassians.jl` for as an example to how the user should store the *pdfs*
  
  
    * **Preform the experiments**
