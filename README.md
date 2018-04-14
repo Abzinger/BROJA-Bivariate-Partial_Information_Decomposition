@@ -59,5 +59,15 @@ The python implementation requires the following external packages to be insatll
    - [Gurobi](https://www.gurobi.com/documentation/7.5/quickstart_windows/py_python_interface)(version 7.5), [CVXOPT](https://github.com/cvxopt/cvxopt)(version 1.1.9): Enhancement of the `Python/cvxopt.py` which have bails out when solution vanishes at any point, i.e., *q(x,y,z) = 0* for some *x,y,z*. The ad-hoc technique fixes *q(x,y,z) =0* and then checks whether the solution is optimal by checking *KKT* first order optimality condotionswhich is a *Linear Program* using gurobi.
   
 
-## Performing Experiments
+## Experiments
 
+* **Data**
+
+ - Gates (Pure): These are paradagmatic gates in which the solution can be computed theoretically and they are well structured and considered to be small instances. The gates used are `XOR`, `AND`, `UNQ`, `RDN`, `XORAND`, `RDNUNQ`, `RDNUNQXOR`. For more details check [*Bivariate Partial Information Decomposition: The Optimization Perspective*](http://www.mdpi.com/1099-4300/19/10/530). The isntances are stored as follows: `PDFs/[gate_name]-0.0-0.dens`.
+ - Gates (Noisy): These are paradagmatic gates distorted with noise. There are five different levels of noise. For more details check [*Bivariate Partial Information Decomposition: The Optimization Perspective*](http://www.mdpi.com/1099-4300/19/10/530). The isntances are stored as follows: `PDFs/Data/[gate_name]-0.0-10000.dens`, `PDFs/Data/[gate_name]-0.001-1000000.dens`,`PDFs/Data/[gate_name]-0.01-100000.dens`,`PDFs/Data/[gate_name]-0.05-100000.dens`, and `PDFs/Data/[gate_name]-0.1-10000.dens`. 
+ - Uniformly at random: *X,Y,Z* are uniformly drawn at random in *{0,1}* with *|X|={2,...,5}* and *|Y|=|Z|={|X|,..., 5|X|}* 
+    - The instances which are idependently drawn are stored as follows:`PDFs/broad_indep--[|X|]-[|Y|]-[|Z|].dens`
+    - The instances which are dependently drawn are stored as follows:`PDFs/broad_dep--[|X|]-[|Y|]-[|Z|].dens`
+ - Discretized Gaussian: These are generated using 20 *3*x*3* (randomly) generated covariance matrices of the gaussians random variables *X,Y,Z*. Then, the resulting distribution is discretized over different boxes *[0,b]* where *b\in{0,0.25,0.5,0.75,1}*.  For more details check [*Bivariate Partial Information Decomposition: The Optimization Perspective*](http://www.mdpi.com/1099-4300/19/10/530). The isntances are stored as follows: `PDFs/Data/gauss-[matrix_number]-[b].dens`.
+ 
+ * **Performing experiments**
