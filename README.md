@@ -61,7 +61,7 @@ The python implementation requires the following external packages to be insatll
 
 ## Experiments
 
-* **Data**
+* **Stored Instances**
 
   - Gates (Pure): These are paradagmatic gates in which the solution can be computed theoretically and they are well structured and considered to be small instances. The gates used are `XOR`, `AND`, `UNQ`, `RDN`, `XORAND`, `RDNUNQ`, `RDNUNQXOR`. For more details check [*Bivariate Partial Information Decomposition: The Optimization Perspective*](http://www.mdpi.com/1099-4300/19/10/530). The isntances are stored as follows: `PDFs/[gate_name]-0.0-0.dens`.
   - Gates (Noisy): These are paradagmatic gates distorted with noise. There are five different levels of noise. For more details check [*Bivariate Partial Information Decomposition: The Optimization Perspective*](http://www.mdpi.com/1099-4300/19/10/530). The isntances are stored as follows: `PDFs/Data/[gate_name]-0.0-10000.dens`, `PDFs/Data/[gate_name]-0.001-1000000.dens`,`PDFs/Data/[gate_name]-0.01-100000.dens`,`PDFs/Data/[gate_name]-0.05-100000.dens`, and `PDFs/Data/[gate_name]-0.1-10000.dens`. 
@@ -70,4 +70,22 @@ The python implementation requires the following external packages to be insatll
     - The instances which are dependently drawn are stored as follows:`PDFs/broad_dep--[|X|]-[|Y|]-[|Z|].dens`
   - Discretized Gaussian: These are generated using 20 *3*x*3* (randomly) generated covariance matrices of the gaussians random variables *X,Y,Z*. Then, the resulting distribution is discretized over different boxes *[0,b]* where *b\in{0,0.25,0.5,0.75,1}*.  For more details check [*Bivariate Partial Information Decomposition: The Optimization Perspective*](http://www.mdpi.com/1099-4300/19/10/530). The isntances are stored as follows: `PDFs/Data/gauss-[matrix_number]-[b].dens`.
  
- * **Performing experiments**
+ * **Generate new Instances**
+ 
+ To generate new instances you can use the following:
+   -`Python/time_series`generates *noisy gate* instances  and store them into files
+   ``` 
+   # Example: The following command generates `XOR` gate instances 
+   # with noise `0.1` 
+   # probability is estimated by sampling `10000` outputs of the gate 
+   
+   python3 time_series.py -w XOR 0.1 10000
+   ```
+   - `Julia/gaussians.jl` is a julia file which generates discretized gaussian instances using the following: 
+       - `random_Σ()` to generates random 3x3 covarient matrix 
+       - `make_apxgaussian_pdf(Σ,s)` discritize via the desired box persicion where *Σ* is the covariance matrix and *s* is the box size 
+       - Note that the *pdf* should be stored approperiatly for later compuations see the julia script `generate_guassians.jl` for as an example to how the user should store the *pdfs*
+ 
+ 
+   * **Preform the experiments**
+   
