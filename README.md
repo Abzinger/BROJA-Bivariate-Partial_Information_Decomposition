@@ -51,12 +51,12 @@ The python implementation requires the following external packages to be insatll
 
 * **Second Order Optimization**
   - [CVXOPT](https://github.com/cvxopt/cvxopt)(version 1.1.9): is written and maintained by Andersen, Dahl, and Vandenberghe. It transforms the general Convex Problems with nonlinear objective function into an epigraph form, before it deploys an Interior Point method. We use two ways to compute PID with the aid of **cvxopt**
-   - Compute the solution of BROJA PID and use `cvxopt` as an *interior point solver*. It is implemented in `Python/cvxopt.py`
-   - Transform the problem into a *Geometric Program* and use `cvxopt` as a *geometric programming solver*. It is implemented in `Python/cvxopt_geo_solve.py`
+    - Compute the solution of BROJA PID and use `cvxopt` as an *interior point solver*. It is implemented in `Python/cvxopt.py`
+    - Transform the problem into a *Geometric Program* and use `cvxopt` as a *geometric programming solver*. It is implemented in `Python/cvxopt_geo_solve.py`
   
  * **Active set Optimization**
-  
-  - [Gurobi](https://www.gurobi.com/documentation/7.5/quickstart_windows/py_python_interface)(version 7.5), [CVXOPT](https://github.com/cvxopt/cvxopt)(version 1.1.9): Enhancement of the `Python/cvxopt.py` which have bails out when solution vanishes at any point, i.e., *q(x,y,z) = 0* for some *x,y,z*. The ad-hoc technique fixes *q(x,y,z) =0* and then checks whether the solution is optimal by checking *KKT* first order optimality condotionswhich is a *Linear Program* using gurobi.
+
+   - [Gurobi](https://www.gurobi.com/documentation/7.5/quickstart_windows/py_python_interface)(version 7.5), [CVXOPT](https://github.com/cvxopt/cvxopt)(version 1.1.9): Enhancement of the `Python/cvxopt.py` which have bails out when solution vanishes at any point, i.e., *q(x,y,z) = 0* for some *x,y,z*. The ad-hoc technique fixes *q(x,y,z) =0* and then checks whether the solution is optimal by checking *KKT* first order optimality condotionswhich is a *Linear Program* using gurobi.
   
 
 ## Performing Experiments
